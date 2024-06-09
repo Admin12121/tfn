@@ -30,7 +30,8 @@ from django.http import JsonResponse
 from django.views import View
 from django.core.files.storage import FileSystemStorage
 
-
+def current_year():
+    return datetime.date.today().year
 # Generate Token Manually
 def get_tokens_for_user(user):
   refresh = RefreshToken.for_user(user)
@@ -362,7 +363,7 @@ class AddDocumentView(APIView):
         if FormDate.objects.filter(user=user, year=date).exists():
             return Response({'error': 'A document with this date already exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        current_year = datetime.now().year
+        current_year = datetime.date.today().year
         entered_year = date
 
         try:
@@ -1050,23 +1051,23 @@ class UserChangePasswordView(APIView):
 class ImportUserDataView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request, format=None):
         file = request.FILES.get('file')
         if not file:
             return JsonResponse({'error': 'No file provided'}, status=400)
-        
+
         fs = FileSystemStorage()
         filename = fs.save(file.name, file)
         file_path = fs.path(filename)
-        
+
         try:
             with transaction.atomic():
                 self.import_data_from_excel(file_path)
                 return JsonResponse({'success': 'Data imported successfully'})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
-    
+
     def import_data_from_excel(self, file_path):
         df = pd.read_excel(file_path)
         detailed_errors = []
@@ -1093,9 +1094,8 @@ class ImportUserDataView(APIView):
                     email=row['Email'],
                     defaults=user_data
                 )
-
-                if created:
-                    self.import_nested_data(user, row)
+                formdate, _ = FormDate.objects.get_or_create(user=user, year=current_year())
+                self.import_nested_data(formdate, row)
             except IntegrityError as e:
                 detailed_errors.append(f"Row {index + 1}: Error importing user {row['Email']}: {str(e)}")
             except Exception as e:
@@ -1105,11 +1105,10 @@ class ImportUserDataView(APIView):
             error_message = '\n'.join(detailed_errors)
             raise ValueError(f"Errors occurred during import:\n{error_message}")
 
-
-    def import_nested_data(self, user, row):
+    def import_nested_data(self, formdate, row):
         if pd.notna(row.get('ABN')):
             Abn_income.objects.update_or_create(
-                user=user,
+                form_date=formdate,
                 defaults={
                     'abn': row.get('ABN'),
                     'natureofworkdone': row.get('Nature of Work Done', ''),
@@ -1119,7 +1118,7 @@ class ImportUserDataView(APIView):
 
         if pd.notna(row.get('Spouse First Name')):
             Spouse.objects.update_or_create(
-                user=user,
+                form_date=formdate,
                 defaults={
                     'first_name': row.get('Spouse First Name'),
                     'middle_name': row.get('Spouse Middle Name', ''),
@@ -1131,7 +1130,7 @@ class ImportUserDataView(APIView):
 
         if pd.notna(row.get('Residential Address Line 1')):
             Residential_addresh.objects.update_or_create(
-                user=user,
+                form_date=formdate,
                 defaults={
                     'res_address1': row.get('Residential Address Line 1'),
                     'res_address2': row.get('Residential Address Line 2', ''),
@@ -1143,17 +1142,17 @@ class ImportUserDataView(APIView):
 
         if pd.notna(row.get('EFT Account Name')):
             BankDetails.objects.update_or_create(
-                user=user,
+                form_date=formdate,
                 defaults={
-                    'etaaccountname': row.get('EFT Account Name',''),
-                    'eftbsbnumber': row.get('EFT BSB Number',''),
-                    'eftaccountnumber': row.get('EFT Account Number','')
+                    'etaaccountname': row.get('EFT Account Name', ''),
+                    'eftbsbnumber': row.get('EFT BSB Number', ''),
+                    'eftaccountnumber': row.get('EFT Account Number', '')
                 }
             )
 
         if pd.notna(row.get('Medicare Type')):
             MedicareInformation.objects.update_or_create(
-                user=user,
+                form_date=formdate,
                 defaults={
                     'medicaretype': row.get('Medicare Type'),
                     'date': row.get('Medicare Date')
