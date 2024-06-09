@@ -317,7 +317,7 @@ class UserRegistrationView(APIView):
             user.is_active = True
             user.save()
             if user:
-                email_subject = "Registration Successfull"
+                email_subject = "Account registrater Successfull"
                 message = render_to_string('message.html', {
                     'name': user.first_name,
                     'message' : "Your Account has Successfully registred and Seded to Supervisor for review once your Document is Verified you Will be inform through email"
