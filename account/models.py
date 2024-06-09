@@ -4,6 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 import threading
 import time
+import pandas as pd
 from django.db import transaction, IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
