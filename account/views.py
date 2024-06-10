@@ -29,6 +29,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views import View
 from django.core.files.storage import FileSystemStorage
+import hashlib
 
 def current_year():
     return datetime.date.today().year
@@ -102,6 +103,7 @@ class CheckEmailView(APIView):
                 settings.EMAIL_HOST_USER,
                 [user.email],
             )
+            email_message.content_subtype = "html"
             email_message.fail_silently = False
             email_message.send()
 
@@ -557,18 +559,18 @@ class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request, format=None):
-         user = request.user
-         
-         if user.role == "user":
-            serializer = UserDataSerializer(user,context={'request': request})
+        user = request.user
+        year_param = request.query_params.get('year', datetime.date.today().year)
+        if user.role == "user":
+            serializer = UserDataSerializer(user, context={'request': request, 'year': year_param})
             return Response(serializer.data, status=status.HTTP_200_OK)
-         elif user.role == "referuser":
+        elif user.role == "referuser":
             serializer = RefUserDataSerializer(user,context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
-         elif user.role == "admin" or user.role == "staff" :
+        elif user.role == "admin" or user.role == "staff" :
             serializer = AdminandStaffUserDataSerializer(user,context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
-         else:
+        else:
             return Response({"detail": "Some thing went wrong user does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
 class AllUsersView(APIView):
@@ -594,7 +596,7 @@ class AllUsersView(APIView):
         status_param = request.query_params.get('status')
         id_param = request.query_params.get('id')
         year_param = request.query_params.get('year', datetime.date.today().year)
-        print(role_param)
+
         if id_param:
             try:
                 user = users.get(id=id_param)
@@ -1057,16 +1059,45 @@ class ImportUserDataView(APIView):
         if not file:
             return JsonResponse({'error': 'No file provided'}, status=400)
 
+        # Compute the hash of the uploaded file
+        file_hash = self.compute_file_hash(file)
+
+        # Check if the file was already uploaded
+        if ImportedFile.objects.filter(file_hash=file_hash).exists():
+            return JsonResponse({'error': 'This file has already been uploaded'}, status=400)
+
+        # Save the file
         fs = FileSystemStorage()
         filename = fs.save(file.name, file)
         file_path = fs.path(filename)
 
+        # Check for existing users in the uploaded file
+        try:
+            self.check_for_existing_users(file_path)
+        except ValueError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+        # Import data
         try:
             with transaction.atomic():
                 self.import_data_from_excel(file_path)
+                # Save the file hash to the database
+                ImportedFile.objects.create(file_name=file.name, file_hash=file_hash)
                 return JsonResponse({'success': 'Data imported successfully'})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
+
+    def compute_file_hash(self, file):
+        hash_md5 = hashlib.md5()
+        for chunk in file.chunks():
+            hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+    def check_for_existing_users(self, file_path):
+        df = pd.read_excel(file_path)
+        existing_emails = User.objects.filter(email__in=df['Email']).values_list('email', flat=True)
+        if existing_emails:
+            raise ValueError(f"The following users already exist: {', '.join(existing_emails)}")
 
     def import_data_from_excel(self, file_path):
         df = pd.read_excel(file_path)
@@ -1090,10 +1121,7 @@ class ImportUserDataView(APIView):
             }
 
             try:
-                user, created = User.objects.update_or_create(
-                    email=row['Email'],
-                    defaults=user_data
-                )
+                user = User.objects.create(**user_data)
                 formdate, _ = FormDate.objects.get_or_create(user=user, year=current_year())
                 self.import_nested_data(formdate, row)
             except IntegrityError as e:
@@ -1163,9 +1191,11 @@ def custom_admin_login(request):
     if request.method == 'POST':
         email = "admin@gmail.com"
         password = "admin"
-        user = authenticate(email=email, password=password)
+        print(email, password)
+        user = User.objects.get(email=email)
+        print(user)
         if user is not None:
-            login(request, user)
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             return redirect('/admin')
         else:
             messages.error(request, 'Invalid email or token')

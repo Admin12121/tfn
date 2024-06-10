@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     #external
     'account',
+    'payment',
 ]
 
 MIDDLEWARE = [
@@ -176,6 +177,14 @@ SIMPLE_JWT = {
 
 }
 
+
+APPEND_SLASH = False
+
+STRIPE_SECRET_KEY='sk_test_51OHmzzGixAyqUicLChGrmxU5xwt4IL0L079toSr6N1uDpVkV5EjaXBz4CfFUhrFBRWpRwA0RFhrlegNIUQrAOeuM00oq5J9BnS'
+SITE_URL='http://localhost:3000/'
+STRIPE_WEBHOOK_SECRET='we_1PQ5zoGixAyqUicL11JFAFiB'
+
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min
 
 CORS_ALLOW_ALL_ORIGINS = True
+

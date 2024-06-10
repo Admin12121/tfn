@@ -3,14 +3,6 @@
 <h2>Admin Login</h2>
 <form method="post" action="{% url 'custom_admin_login' %}">
     {% csrf_token %}
-    <div>
-        <label for="id_email">Email:</label>
-        <input type="email" name="email" value="admin@gmail.com" required id="id_email">
-    </div>
-    <div>
-        <label for="id_token">Token:</label>
-        <input type="text" name="token" value="1234" required id="id_token">
-    </div>
     <button type="submit">Login</button>
 </form>
 {% endblock %}
