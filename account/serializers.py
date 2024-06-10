@@ -116,7 +116,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'title', 'first_name', 'middle_name', 'last_name', 'password', 'phone', 'dateofbirth',
-            'numberofdependents', 'gender', 'tfn', 'abn', 'spouse', 'medicareinformation',
+            'numberofdependents', 'gender', 'tfn', 'abn', 'spouse', 'medicareinformation','remark',
         ]
     
     def validate_email(self, value):
@@ -269,13 +269,19 @@ class UserDataSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         id_param = request.query_params.get('id')
 
-        if id_param:
-            # If the request is for a single user by ID, return all form data
+        user = request.user
+
+        # Check if the user is authenticated and if the requested user is the same as the authenticated user
+        if request.user.is_authenticated and obj == user:
             form_dates = obj.formdata.all()
         else:
-            # If the request is for all users, return only current year data
-            year_param = request.query_params.get('year', datetime.date.today().year)
-            form_dates = obj.formdata.filter(year=year_param)
+            if id_param:
+                # If the request is for a single user by ID, return all form data
+                form_dates = obj.formdata.all()
+            else:
+                # If the request is for all users, return only current year data
+                year_param = request.query_params.get('year', datetime.date.today().year)
+                form_dates = obj.formdata.filter(year=year_param)
 
         form_dates_data = FormDateSerializer(form_dates, many=True).data
         return form_dates_data[0] if form_dates_data and not id_param else form_dates_data

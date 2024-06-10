@@ -101,6 +101,7 @@ class User(AbstractBaseUser):
     role = models.CharField(choices=ROLE_CHOICES, max_length=10, default="user")
     abn = models.BooleanField(default=False, null=True, blank=True)
     spouse = models.BooleanField(default=False, null=True, blank=True)
+    remark = models.CharField(max_length=100, null=True, blank=True)
     medicareinformation = models.BooleanField(default=False, null=True, blank=True)
     referercode = models.ForeignKey('ReferralUser', on_delete=models.SET_DEFAULT, default=None, null=True, blank=True, related_name='users_with_referercode')
     status = models.CharField(max_length=100,choices=Status, null=True, blank=True, default="received")
@@ -375,3 +376,7 @@ class ReferalSettlement(models.Model):
     settledamount = models.FloatField(null=True, blank=True)
     settleddate = models.CharField(max_length=100,null=True, blank=True)    
 
+class ImportedFile(models.Model):
+    file_name = models.CharField(max_length=255)
+    file_hash = models.CharField(max_length=255, unique=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
