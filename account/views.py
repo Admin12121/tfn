@@ -579,6 +579,11 @@ class AllUsersView(APIView):
     pagination_class = CustomPageNumberPagination 
 
     def get(self, request, format=None):
+        if request.user.role == 'user':
+            # Create an instance of UserProfileView and call its get method
+            user_profile_view = UserProfileView()
+            return user_profile_view.get(request, format=format)
+        
         if request.user.role not in ['admin', 'staff']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
         
