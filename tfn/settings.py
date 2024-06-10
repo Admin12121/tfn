@@ -17,10 +17,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-qr-*fbv_n#jmf4cr=tu%b#i)5rhtheewx=j#+_900c((priuj%"
+SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -52,7 +52,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    #corsheader
     'corsheaders.middleware.CorsMiddleware',
 ]
 
@@ -180,9 +179,9 @@ SIMPLE_JWT = {
 
 APPEND_SLASH = False
 
-STRIPE_SECRET_KEY='sk_test_51OHmzzGixAyqUicLChGrmxU5xwt4IL0L079toSr6N1uDpVkV5EjaXBz4CfFUhrFBRWpRwA0RFhrlegNIUQrAOeuM00oq5J9BnS'
-SITE_URL='http://localhost:3000/'
-STRIPE_WEBHOOK_SECRET='we_1PQ5zoGixAyqUicL11JFAFiB'
+STRIPE_SECRET_KEY=config('STRIPE_SECRET_KEY')
+SITE_URL= config('DOMAIN')
+STRIPE_WEBHOOK_SECRET=config('STRIPE_WEBHOOK_SECRET')
 
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min
 
