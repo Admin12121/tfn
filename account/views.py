@@ -1051,6 +1051,20 @@ class DataExported(APIView):
             print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class SendUserPasswordResetEmailView(APIView):
+  renderer_classes = [UserRenderer]
+  def post(self, request, format=None):
+    serializer = SendUserPasswordResetEmailSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return Response({'msg':'Password Reset link send. Please check your Email'}, status=status.HTTP_200_OK)
+
+class UserPasswordResetView(APIView):
+  renderer_classes = [UserRenderer]
+  def post(self, request, uid, token, format=None):
+    serializer = UserPasswordResetSerializer(data=request.data, context={'uid':uid, 'token':token})
+    serializer.is_valid(raise_exception=True)
+    return Response({'msg':'Password Reset Successfully'}, status=status.HTTP_200_OK)
+
 class UserChangePasswordView(APIView):
   renderer_classes = [UserRenderer]
   permission_classes = [IsAuthenticated]
@@ -1225,6 +1239,8 @@ class ImportUserDataView(APIView):
                     'date': row.get('Medicare Date')
                 }
             )
+
+
 
 def custom_admin_login(request):
     if request.method == 'POST':

@@ -299,3 +299,50 @@ class UserChangePasswordSerializer(serializers.Serializer):
     user.set_password(password)
     user.save()
     return attrs
+
+class SendUserPasswordResetEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=255)
+    class Meta:
+        fields = ['email']
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email = email)
+            uid = urlsafe_base64_encode(force_bytes(user.id))
+            token = PasswordResetTokenGenerator().make_token(user)
+            # link = 'https://whale-app-oh7bu.ondigitalocean.app/api/user/reset/'+uid+'/'+token
+            link = f'{config("DOMAIN")}/reset/{uid}/{token}'
+            body = 'Click Following Link to Reset Your Password ' + link
+            data = {
+                'subject':'Reset Your Password',
+                'body':body,
+                'to_email':user
+            }
+            Util.send_email(data)
+            return attrs
+        else:
+           raise serializers.ValidationError('You are not a Registered User')
+        
+
+class UserPasswordResetSerializer(serializers.Serializer):
+    password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
+    class Meta:
+        fields = ['password']
+
+    def validate(self, attrs):
+        try:
+            password = attrs.get('password')
+            uid = self.context.get('uid')
+            token = self.context.get('token')
+
+            id = smart_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(id=id)
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                raise serializers.ValidationError('Token is not Valid or Expired')
+            user.set_password(password)
+            user.save()
+            return attrs
+        except DjangoUnicodeDecodeError as identifier:
+            PasswordResetTokenGenerator().check_token(user, token)
+            raise serializers.ValidationError('Token is not Valid or Expired')

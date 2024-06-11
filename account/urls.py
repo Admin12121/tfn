@@ -24,4 +24,6 @@ urlpatterns = [
     path('exportdata/', DataExported.as_view(), name='exportdata'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('import-excel/', ImportUserDataView.as_view(), name='import-excel'),
+    path('reset-password/<uid>/<token>/', UserPasswordResetView.as_view(), name='reset-password'),
+    path('send-reset-password-email/', SendUserPasswordResetEmailView.as_view(), name='send-reset-password-email'),
 ]
