@@ -109,11 +109,11 @@ class ReferralUserAdmin(admin.ModelAdmin):
 
 # admin.site.register(FormDate, FormDateAdmin)
 # admin.site.register(ReferralUser, ReferralUserAdmin)
-# admin.site.register(User, UserModelAdmin)
+admin.site.register(User, UserModelAdmin)
 admin.site.register(Occupation, OccupationAdmin)
 # admin.site.register(Additionalinformationandsupportingdocuments, AdditionalInformationAndSupportingDocumentsAdmin)
 
-admin.site.register(User)
+# admin.site.register(User)
 admin.site.register(ReferalData)
 admin.site.register(Passport_DrivingLicense)
 admin.site.register(ReferalSettlement)
