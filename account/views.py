@@ -882,9 +882,14 @@ class RefUserData(APIView):
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
         data = ReferalData.objects.all()
+        id = request.data.get('id')
 
         if request.user.role == 'admin' or request.user.role == 'staff':
-            data = data
+            if(id):
+                user = User.object.get_object_or_404(id=id)
+                data = data.filter(referal__user=user)
+            else:
+                data = data
         elif request.user.role == 'referuser':
             data = data.filter(referal__user=request.user)
 
@@ -1053,6 +1058,35 @@ class UserChangePasswordView(APIView):
   def post(self, request, format=None):
     serializer = UserChangePasswordSerializer(data=request.data, context={'user':request.user})
     serializer.is_valid(raise_exception=True)
+    return Response({'msg':'Password Changed Successfully'}, status=status.HTTP_200_OK)
+
+class AdminChangePasswordView(APIView):
+  renderer_classes = [UserRenderer]
+  permission_classes = [IsAuthenticated]
+
+  def post(self, request, format=None):
+    id = request.data.get('id')
+    user = User.objects.get(id=id)
+    password = request.data.get('password')
+    email = user.email
+    serializer = UserChangePasswordSerializer(data=request.data, context={'user':user})
+    serializer.is_valid(raise_exception=True)
+    if user:
+        email_subject = "Password changed"
+        message = render_to_string('message.html', {
+            'name': user.first_name,
+            'password' : password,
+            'message' : "Your Password has been changed by Admin"
+        })
+        email_message = EmailMessage(
+            email_subject,
+            message,
+            settings.EMAIL_HOST_USER,
+            [email],
+        )
+        email_message.content_subtype = "html"
+        email_message.fail_silently = False
+        email_message.send()
     return Response({'msg':'Password Changed Successfully'}, status=status.HTTP_200_OK)
 
 class ImportUserDataView(APIView):
