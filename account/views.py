@@ -644,6 +644,7 @@ class AllUsersView(APIView):
             users = users.filter(is_active=is_active_param.lower() == 'true')
 
         if status_param:
+            print(status_param)
             users = users.filter(status=status_param)
 
         if role_param:

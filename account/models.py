@@ -75,7 +75,7 @@ class User(AbstractBaseUser):
         ('pending', 'pending'),
         ('seentforsign', 'seentforsign'),
         ('signed', 'signed'),
-        ('logdedwithato', 'lodgedwithato'),
+        ('lodgedwithato', 'lodgedwithato'),
         ('dormat', 'dormat'),
     )
     Payment_Status = (
