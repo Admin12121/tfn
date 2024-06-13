@@ -1127,14 +1127,14 @@ class ImportUserDataView(APIView):
 
         # Check for existing users in the uploaded file
         try:
-            self.check_for_existing_users(file_path)
+            self.check_for_existing_users(file_path, file.name)
         except ValueError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
         # Import data
         try:
             with transaction.atomic():
-                self.import_data_from_excel(file_path)
+                self.import_data(file_path, file.name)
                 # Save the file hash to the database
                 ImportedFile.objects.create(file_name=file.name, file_hash=file_hash)
                 return JsonResponse({'success': 'Data imported successfully'})
@@ -1147,16 +1147,27 @@ class ImportUserDataView(APIView):
             hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-    def check_for_existing_users(self, file_path):
-        df = pd.read_excel(file_path)
+    def check_for_existing_users(self, file_path, file_name):
+        if file_name.endswith('.xlsx'):
+            df = pd.read_excel(file_path)
+        elif file_name.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        else:
+            raise ValueError('Unsupported file format')
+
         existing_emails = User.objects.filter(email__in=df['Email']).values_list('email', flat=True)
         if existing_emails:
             raise ValueError(f"The following users already exist: {', '.join(existing_emails)}")
 
-    def import_data_from_excel(self, file_path):
-        df = pd.read_excel(file_path)
+    def import_data(self, file_path, file_name):
+        if file_name.endswith('.xlsx'):
+            df = pd.read_excel(file_path)
+        elif file_name.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        else:
+            raise ValueError('Unsupported file format')
+
         detailed_errors = []
-        print(df)
         for index, row in df.iterrows():
             user_data = {
                 'email': row.get('Email', ''),
@@ -1240,7 +1251,6 @@ class ImportUserDataView(APIView):
                     'date': row.get('Medicare Date')
                 }
             )
-
 
 
 def custom_admin_login(request):
