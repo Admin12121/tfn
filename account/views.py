@@ -92,7 +92,7 @@ class CheckEmailView(APIView):
         user.save()
 
         if user:
-            email_subject = "Your Verification Token"
+            email_subject = "Your One-Time Password (OTP) For a Secure Access"
             message = render_to_string('email_confirmation.html', {
                 'name': user.first_name,
                 'token': token
@@ -131,7 +131,7 @@ class AdminRegistrationView(APIView):
         
         if user:
             email_subject = "Account Created"
-            message = render_to_string('message.html', {
+            message = render_to_string('GlodenUSer.html', {
                 'name': user.first_name,
                 'message' : "Your Account has been Created Successfully. This is your Password to login plz reset your password after login. Use your registred email and password to login",
                 'password' : password
@@ -320,10 +320,10 @@ class UserRegistrationView(APIView):
             user.is_active = True
             user.save()
             if user:
-                email_subject = "Account registrater Successfull"
+                email_subject = "Account Registration complete"
                 message = render_to_string('message.html', {
                     'name': user.first_name,
-                    'message' : "Your Account has Successfully registred and Seded to Supervisor for review once your Document is Verified you Will be inform through email"
+                    'message' : "Your account has been successfully registered and is now under review. We will notify you vie email once your document have been verified."
                 })
                 email_message = EmailMessage(
                     email_subject,
@@ -670,7 +670,7 @@ class AllUsersView(APIView):
     def patch(self, request, format=None):
         if request.user.role not in ['admin', 'staff', 'user']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
-        
+        print(request.data)
         user_param = request.query_params.get('id')
         year_param = request.query_params.get('year')
         role_param = request.query_params.get('role')
@@ -720,7 +720,13 @@ class AllUsersView(APIView):
         else:
             if request.user.role == 'admin' and user.role == 'user':
                 try:
-                    form_date = FormDate.objects.get(user=user, year=year_param)
+                    if not year_param:
+                        serializer = UserUpdateSerializer(user, data=request.data, partial=True)
+                        if serializer.is_valid(raise_exception=True):
+                            serializer.save()
+                        return Response({'detail': f'MedicareInformation data for {user.first_name} updated successfully.'}, status=status.HTTP_200_OK)
+                    else:
+                        form_date = FormDate.objects.get(user=user, year=year_param)
                 except FormDate.DoesNotExist:
                     return Response({'detail': 'Form date not found for the specified year.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -863,6 +869,9 @@ class ClientuserStatusUpdates(APIView):
 
                 users = User.objects.filter(id__in=user_ids)
 
+                if new_status == 'dormat':
+                    self.send_dormant_status_emails(users)
+
                 # Update ReferalData status if user exists and meets criteria
                 for user in users:
                     if user.status == 'lodgedwithato' and user.payment_status == 'paid':
@@ -872,6 +881,26 @@ class ClientuserStatusUpdates(APIView):
         except Exception as e:
             print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    def send_dormant_status_emails(self, users):
+        email_subject = "Your account status has been updated"
+        for user in users:
+            if user.status == 'dormat':
+                message = render_to_string('documentverified.html', {
+                    'name': user.first_name,
+                    'message': 'Your Account has been Verified'
+                })
+                email_message = EmailMessage(
+                    email_subject,
+                    message,
+                    settings.EMAIL_HOST_USER,
+                    [user.email],
+                )
+                email_message.content_subtype = "html"
+                email_message.fail_silently = False
+                email_message.send()
+
 
 class RefUserData(APIView):
     renderer_classes = [UserRenderer]
@@ -1167,14 +1196,25 @@ class ImportUserDataView(APIView):
         else:
             raise ValueError('Unsupported file format')
 
+        required_fields = [
+            'Email', 'First Name', 'Last Name', 'Residential Address Line 1', 
+            'Residential Address State', 'EFT Account Name', 'EFT BSB Number', 
+            'EFT Account Number', 'Year'
+        ]
         detailed_errors = []
+
         for index, row in df.iterrows():
+            missing_fields = [field for field in required_fields if pd.isna(row.get(field))]
+            if missing_fields:
+                detailed_errors.append(f"Row {index + 1}: Missing required fields: {', '.join(missing_fields)}")
+                continue
+
             user_data = {
-                'email': row.get('Email', ''),
+                'email': row.get('Email'),
                 'title': row.get('Title', ''),
-                'first_name': row.get('First Name', ''),
+                'first_name': row.get('First Name'),
                 'middle_name': row.get('Middle Name', ''),
-                'last_name': row.get('Last Name', ''),
+                'last_name': row.get('Last Name'),
                 'phone': row.get('Phone', ''),
                 'dateofbirth': row.get('Birth Date', ''),
                 'numberofdependents': row.get('Number of Dependents', 0),
@@ -1187,7 +1227,7 @@ class ImportUserDataView(APIView):
 
             try:
                 user = User.objects.create(**user_data)
-                formdate, _ = FormDate.objects.get_or_create(user=user, year=current_year())
+                formdate, _ = FormDate.objects.get_or_create(user=user, year=row.get('Year'))
                 self.import_nested_data(formdate, row)
             except IntegrityError as e:
                 detailed_errors.append(f"Row {index + 1}: Error importing user {row['Email']}: {str(e)}")
@@ -1221,27 +1261,25 @@ class ImportUserDataView(APIView):
                 }
             )
 
-        if pd.notna(row.get('Residential Address Line 1')):
-            Residential_addresh.objects.update_or_create(
-                form_date=formdate,
-                defaults={
-                    'res_address1': row.get('Residential Address Line 1'),
-                    'res_address2': row.get('Residential Address Line 2', ''),
-                    'res_addresslocation': row.get('Residential Address Location', ''),
-                    'res_addresspostcode': row.get('Residential Address Postcode', ''),
-                    'res_addreshstate': row.get('Residential Address State')
-                }
-            )
+        Residential_addresh.objects.update_or_create(
+            form_date=formdate,
+            defaults={
+                'res_address1': row.get('Residential Address Line 1'),
+                'res_address2': row.get('Residential Address Line 2', ''),
+                'res_addresslocation': row.get('Residential Address Location', ''),
+                'res_addresspostcode': row.get('Residential Address Postcode', ''),
+                'res_addreshstate': row.get('Residential Address State')
+            }
+        )
 
-        if pd.notna(row.get('EFT Account Name')):
-            BankDetails.objects.update_or_create(
-                form_date=formdate,
-                defaults={
-                    'etaaccountname': row.get('EFT Account Name', ''),
-                    'eftbsbnumber': row.get('EFT BSB Number', ''),
-                    'eftaccountnumber': row.get('EFT Account Number', '')
-                }
-            )
+        BankDetails.objects.update_or_create(
+            form_date=formdate,
+            defaults={
+                'etaaccountname': row.get('EFT Account Name'),
+                'eftbsbnumber': row.get('EFT BSB Number'),
+                'eftaccountnumber': row.get('EFT Account Number')
+            }
+        )
 
         if pd.notna(row.get('Medicare Type')):
             MedicareInformation.objects.update_or_create(
