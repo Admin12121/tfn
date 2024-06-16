@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -181,6 +181,7 @@ APPEND_SLASH = False
 
 STRIPE_SECRET_KEY=config('STRIPE_SECRET_KEY')
 SITE_URL= config('DOMAIN')
+AUTH_SITE_URL= config('AUTHDOMAIN')
 STRIPE_WEBHOOK_SECRET=config('STRIPE_WEBHOOK_SECRET')
 
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min

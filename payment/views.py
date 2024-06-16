@@ -21,7 +21,6 @@ class StripeCheckoutView(APIView):
                 customer_email=user,
                 line_items=[
                     {
-                        # Provide the exact Price ID (for example, pr_1234) of the product you want to sell
                         'price': 'price_1PQ2HkGixAyqUicL9W28U717',
                         'quantity': 1,
                     },
@@ -58,13 +57,14 @@ class AuthStripeCheckoutView(APIView):
                     },
                 ],
                 mode='payment',
-                success_url=settings.SITE_URL + '/success?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url=settings.SITE_URL + '/cancel',
+                success_url=settings.AUTH_SITE_URL + '?success=true&session_id={CHECKOUT_SESSION_ID}',
+                cancel_url=settings.AUTH_SITE_URL + '?canceled=true',
             )
-            return redirect(checkout_session.url, code=303)
+            return Response({'url': checkout_session.url}, status=status.HTTP_200_OK)
         except Exception as e:
+            print(f"Error creating Stripe checkout session: {e}")
             return Response(
-                {'error': "Something went wrong when creating stripe payment"},
+                {'error':f"Something went wrong when creating stripe payment: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
