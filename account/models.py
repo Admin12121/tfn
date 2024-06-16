@@ -4,6 +4,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 import threading
 import time
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 import pandas as pd
 from django.db import transaction, IntegrityError
 from django.core.exceptions import ValidationError
@@ -17,6 +19,7 @@ from cryptography.fernet import Fernet
 import qrcode
 from tfn import settings
 import datetime
+from email.mime.image import MIMEImage
 
 def current_year():
     return datetime.date.today().year
@@ -165,6 +168,8 @@ class ReferralUser(models.Model):
     commission = models.FloatField(null=True, blank=True)
     referrerurl = models.CharField(max_length=500, null=True, blank=True)
     qrcode = models.ImageField(upload_to='refuser/qr', null=True, blank=True, validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf'])])
+    
+    
     def save(self, *args, **kwargs):
         is_new_instance = not self.pk
         old_instance = None
@@ -176,12 +181,11 @@ class ReferralUser(models.Model):
             if is_new_instance or (old_instance and old_instance.commission != self.commission):
                 self.referrercode = self.generate_referrercode()
                 encrypted_data = self.encrypt_data()
-                self.generate_qr_code(encrypted_data)
                 url = self.generate_qr_code(encrypted_data)
                 
                 # Set the referrerurl field
                 self.referrerurl = url
-                # Save the instance again to update referrercode and qrcode
+                # Save the instance again to update referrercode, qrcode, and referrerurl
                 super().save(update_fields=['referrercode', 'qrcode', 'referrerurl'])
 
                 self.send_email_with_qrcode()
@@ -200,7 +204,7 @@ class ReferralUser(models.Model):
 
     def generate_qr_code(self, encrypted_data):
         isreq = self.isrequired
-        url = f"http://localhost:3000/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
+        url = f"https://tax-eight.vercel.app/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_H
         )
@@ -236,16 +240,43 @@ class ReferralUser(models.Model):
         img.save(buffer, format="PNG")
         file_name = f"{self.referrercode}_qrcode.png"
         self.qrcode.save(file_name, ContentFile(buffer.getvalue()), save=False)
+        
+        return url
 
     def send_email_with_qrcode(self):
         if self.qrcode:
             subject = "Your Referral QR Code"
-            message = f"Hello {self.user.first_name},\n\nHere is your referral QR code."
-            email = EmailMessage(subject, message, settings.EMAIL_HOST_USER, to=[self.user.email])
-            email.attach(self.qrcode.name, self.qrcode.read(), 'image/png')
+            context = {
+                'user': self.user,
+                'referrercode': self.referrercode,
+                'referrerurl': self.referrerurl,
+            }
+            message = render_to_string('qrcode.html', context)
+            
+            email = EmailMultiAlternatives(
+                subject,
+                message,
+                settings.EMAIL_HOST_USER,
+                [self.user.email]
+            )
+            email.attach_alternative(message, "text/html")
+            email.content_subtype = "html"
+
+            # Attach QR code image
+            qr_image = self.qrcode.file
+            qr_image.open()
+            qr_image_content = qr_image.read()
+            email.attach(self.qrcode.name, qr_image_content, 'image/png')
+
+            # Embed QR code image in the email
+            image = MIMEImage(qr_image_content)
+            image.add_header('Content-ID', '<qr_code_image>')
+            image.add_header('Content-Disposition', 'inline', filename=self.qrcode.name)
+            email.attach(image)
+
             email.fail_silently = False
             email.send()
-
+            
 class Abn_income(models.Model):
     form_date = models.OneToOneField(FormDate, related_name='abn_income', on_delete=models.CASCADE)
     abn = models.IntegerField()

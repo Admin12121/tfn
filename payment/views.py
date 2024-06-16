@@ -13,7 +13,6 @@ from account.renderers import UserRenderer
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-# @app.route('/create-checkout-session', methods=['POST'])
 class StripeCheckoutView(APIView):
     def post(self, request):
         user = request.data.get('email')
@@ -45,13 +44,13 @@ class AuthStripeCheckoutView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
     def post(self, request):
-        user = request.user  # Assuming the user is authenticated
+        user = request.user  
         if not user.is_authenticated:
             return Response({'error': 'User not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             checkout_session = stripe.checkout.Session.create(
-                customer_email=user.email,  # Pass user's email to Stripe
+                customer_email=user.email,  
                 line_items=[
                     {
                         'price': 'price_1PQ2HkGixAyqUicL9W28U717',
@@ -72,27 +71,22 @@ class AuthStripeCheckoutView(APIView):
 
 class StripeWebhookView(APIView):
     def post(self, request):
-        print('done')
         payload = request.body
         sig_header = request.META['HTTP_STRIPE_SIGNATURE']
         event = None
-
         try:
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
         except ValueError as e:
-            # Invalid payload
             return JsonResponse({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
         except stripe.error.SignatureVerificationError as e:
-            # Invalid signature
+
             return JsonResponse({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Handle the event
         if event['type'] == 'checkout.session.completed':
             session = event['data']['object']
 
-            # Retrieve the user by email
             user_email = session.get('customer_email')
             if user_email:
                 try:

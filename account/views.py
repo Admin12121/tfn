@@ -56,6 +56,23 @@ class CustomPageNumberPagination(PageNumberPagination):
                 pass
         return super().get_page_size(request)
 
+class EmailValidatorView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        tfn = request.data.get('tfn')
+        if not email and not tfn:
+            return Response({'error': 'Valid email or TFN number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email_exists = User.objects.filter(email=email).exists() if email else False
+
+        tfn_exists = User.objects.filter(tfn=tfn).exists() if tfn else False
+
+        if email_exists or tfn_exists:
+            return Response({'error': 'Email or TFN exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'Email or TFN doesn\'t exist'}, status=status.HTTP_200_OK)
+
+
 class CheckEmailView(APIView):
     def post(self, request):
         identifier = request.data.get('email')
@@ -900,7 +917,6 @@ class ClientuserStatusUpdates(APIView):
                 email_message.content_subtype = "html"
                 email_message.fail_silently = False
                 email_message.send()
-
 
 class RefUserData(APIView):
     renderer_classes = [UserRenderer]
