@@ -214,8 +214,11 @@ class UserRegistrationView(APIView):
 
             if referraluser_param and 'company' in request.data:
                 company = request.data['company']
-                company_logo = request.data['company_logo',None]
-                ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
+                company_logo = request.data.get('company_logo')  # Use .get() to safely retrieve the value
+                if company_logo:  # Check if company_logo is not empty (assuming None or empty string are considered empty)
+                    ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
+                else:
+                    ReferralUser.objects.create(user=user, company=company)  # Create without company_logo
                 user.role = "referuser"
                 user.is_active = False
                 user.save()

@@ -62,10 +62,24 @@ class PassportDrivingLicenseSerializer(serializers.ModelSerializer):
         model = Passport_DrivingLicense
         fields = '__all__'
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if instance.passport and request:
+            representation['passport'] = request.build_absolute_uri(instance.passport.url)
+        return representation
+
 class SupportingDocumentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportingDocuents
         fields = '__all__'
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if instance.supportingdocuments and request:
+            representation['supportingdocuments'] = request.build_absolute_uri(instance.supportingdocuments.url)
+        return representation
 
 class OccupationDataSerializer(serializers.ModelSerializer):
     applicable_income_categories = ApplicableIncomeCategoriesSerializer(source='applicableincomecategories', read_only=True)
@@ -109,7 +123,16 @@ class FormDateSerializer(serializers.ModelSerializer):
         model = FormDate
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.child_context = {'context': self.context}
 
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['additional_information'] = AdditionalInformationAndDocumentsSerializer(instance.additional_information, context=self.context).data
+        return representation
+    
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -283,22 +306,30 @@ class UserDataSerializer(serializers.ModelSerializer):
                 year_param = request.query_params.get('year', datetime.date.today().year)
                 form_dates = obj.formdata.filter(year=year_param)
 
-        form_dates_data = FormDateSerializer(form_dates, many=True).data
+        form_dates_data = FormDateSerializer(form_dates, many=True, context={'request': request}).data
         return form_dates_data[0] if form_dates_data and not id_param else form_dates_data
 
 
 class UserChangePasswordSerializer(serializers.Serializer):
-  password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
+    old_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
+    new_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
+    class Meta:
+        fields = ['old_password', 'new_password']
 
-  class Meta:
-    fields = ['password']
+    def validate(self, attrs):
+        old_password = attrs.get('old_password')
+        user = self.context.get('user')
+        
+        if not user.check_password(old_password):
+            raise serializers.ValidationError("Old password is incorrect")
 
-  def validate(self, attrs):
-    password = attrs.get('password')
-    user = self.context.get('user')
-    user.set_password(password)
-    user.save()
-    return attrs
+        return attrs
+
+    def update(self, instance, validated_data):
+        new_password = validated_data.get('new_password')
+        instance.set_password(new_password)
+        instance.save()
+        return instance
 
 class SendUserPasswordResetEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=255)
