@@ -749,7 +749,7 @@ class AllUsersView(APIView):
 
                 return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            if request.user.role == 'admin' and user.role == 'user':
+            if request.user.role in ['admin','user'] and user.role == 'user':
                 print(request.data)
                 try:
                     if not year_param:
@@ -762,10 +762,21 @@ class AllUsersView(APIView):
 
                             if abnincome_data:
                                 abnincome_data = json.loads(abnincome_data)
-                                abnincome = Abn_income.objects.get(id=abnincome_data.get('id'))
-                                abnincome_serializer = AbnIncomeSerializer(abnincome, data=abnincome_data, partial=True)
-                                if abnincome_serializer.is_valid(raise_exception=True):
-                                    abnincome_serializer.save()
+                                abn_id = abnincome_data.get('id', None)
+
+                                if abn_id: 
+                                    try:
+                                        abnincome = Abn_income.objects.get(id=abn_id)
+                                        abnincome_serializer = AbnIncomeSerializer(abnincome, data=abnincome_data, partial=True)
+                                        if abnincome_serializer.is_valid(raise_exception=True):
+                                            abnincome_serializer.save()
+                                    except Abn_income.DoesNotExist:
+                                        return Response({'detail': 'ABN income not found.'}, status=status.HTTP_404_NOT_FOUND)
+                                else:
+                                    abnincome_data['user'] = user.pk  # Assuming user is available in the context
+                                    abnincome_serializer = AbnIncomeSerializer(data=abnincome_data)
+                                    if abnincome_serializer.is_valid(raise_exception=True):
+                                        abnincome_serializer.save()
 
                             if spouse_data:
                                 spouse_data = json.loads(spouse_data)
