@@ -58,6 +58,7 @@ class User(AbstractBaseUser):
     Title = (
         ('Mr', 'Mr'),
         ('Mrs', 'Mrs'),
+        ('Ms', 'Ms'),
     )
     Gender = (
         ('Male', 'Male'),
@@ -278,7 +279,7 @@ class ReferralUser(models.Model):
             email.send()
             
 class Abn_income(models.Model):
-    form_date = models.OneToOneField(FormDate, related_name='abn_income', on_delete=models.CASCADE)
+    user = models.OneToOneField('User', related_name='abn_income', on_delete=models.CASCADE)
     abn = models.IntegerField()
     natureofworkdone = models.TextField(max_length=2000, null=True, blank=True)
     grossincomereceivedinbank = models.IntegerField(null=True, blank=True)

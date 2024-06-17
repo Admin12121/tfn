@@ -60,18 +60,26 @@ class EmailValidatorView(APIView):
     def post(self, request):
         email = request.data.get('email')
         tfn = request.data.get('tfn')
+        abn = request.data.get('abn', None)
+
         if not email and not tfn:
             return Response({'error': 'Valid email or TFN number is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         email_exists = User.objects.filter(email=email).exists() if email else False
-
         tfn_exists = User.objects.filter(tfn=tfn).exists() if tfn else False
+
+        if abn:
+            abn_exists = Abn_income.objects.filter(abn=abn).exists()
+        else:
+            abn_exists = False
 
         if email_exists or tfn_exists:
             return Response({'error': 'Email or TFN exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if abn and abn_exists:
+            return Response({'error': 'ABN exists'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'Email or TFN doesn\'t exist'}, status=status.HTTP_200_OK)
-
 
 class CheckEmailView(APIView):
     def post(self, request):
@@ -188,6 +196,7 @@ class UserRegistrationView(APIView):
         return passport_files, supporting_documents_files
     @transaction.atomic
     def post(self, request, format=None):
+        print(request.data)
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
@@ -205,7 +214,7 @@ class UserRegistrationView(APIView):
 
             if referraluser_param and 'company' in request.data:
                 company = request.data['company']
-                company_logo = request.data['company_logo']
+                company_logo = request.data['company_logo',None]
                 ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
                 user.role = "referuser"
                 user.is_active = False
@@ -216,25 +225,28 @@ class UserRegistrationView(APIView):
                     try:
                         decrypted_data = self.decrypt_data(encrypted_data)
                         referrercode, refer_user_id = decrypted_data.split(":")
+                        form_charge = FormCharge.objects.get(fixed=1)
                         referral_user = ReferralUser.objects.filter(
                             Q(user_id=refer_user_id) | Q(referrercode=referrercode)
                         ).first()
                         if referral_user:
-                            ReferalData.objects.create(user=user, referal=referral_user)
+                            if referral_user.commissiontype:
+                                commission_amt = (referral_user.commission / 100.0) * form_charge.amount
+                            else:
+                                commission_amt = referral_user.commission
+                            ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
                     except Exception as e:
                         print(f"Error in decrypting or processing referral data: {e}")
 
                 if referrercode:
-                    # print(referrercode)
+                    print(referrercode)
                     try:
                         referral_user = ReferralUser.objects.get(referrercode=referrercode)
                         form_charge = FormCharge.objects.get(fixed=1)
                         if referral_user and form_charge:
                             if referral_user.commissiontype:
-                                # Commission is a percentage of the form charge amount
                                 commission_amt = (referral_user.commission / 100.0) * form_charge.amount
                             else:
-                                # Commission is a fixed amount
                                 commission_amt = referral_user.commission
                             print("Commision Amount",commission_amt)
                             ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
@@ -259,7 +271,7 @@ class UserRegistrationView(APIView):
                 # Create related models if the data is provided using serializers
                 if abnincome_data:
                     abnincome_data = json.loads(abnincome_data)
-                    abnincome_data['form_date'] = form_date.pk
+                    abnincome_data['user'] = user.pk
                     abnincome_serializer = AbnIncomeSerializer(data=abnincome_data)
                     if abnincome_serializer.is_valid():
                         abnincome_serializer.save()
@@ -683,11 +695,13 @@ class AllUsersView(APIView):
             serializer = UserDataSerializer(result_page, many=True, context={'request': request})
 
         return paginator.get_paginated_response(serializer.data)
-    
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     def patch(self, request, format=None):
         if request.user.role not in ['admin', 'staff', 'user']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
-        print(request.data)
         user_param = request.query_params.get('id')
         year_param = request.query_params.get('year')
         role_param = request.query_params.get('role')
@@ -704,7 +718,7 @@ class AllUsersView(APIView):
             user = User.objects.get(id=user_param)
         except User.DoesNotExist:
             return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         if user_param and role_param in ["admin", "staff"]:
             serializer = AdminandStaffUserDataSerializer(user, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
@@ -736,12 +750,47 @@ class AllUsersView(APIView):
                 return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             if request.user.role == 'admin' and user.role == 'user':
+                print(request.data)
                 try:
                     if not year_param:
                         serializer = UserUpdateSerializer(user, data=request.data, partial=True)
                         if serializer.is_valid(raise_exception=True):
                             serializer.save()
-                        return Response({'detail': f'MedicareInformation data for {user.first_name} updated successfully.'}, status=status.HTTP_200_OK)
+                        try:
+                            spouse_data = request.data.get('spouse_data')
+                            abnincome_data = request.data.get('abnincome_data')
+
+                            if abnincome_data:
+                                abnincome_data = json.loads(abnincome_data)
+                                abnincome = Abn_income.objects.get(id=abnincome_data.get('id'))
+                                abnincome_serializer = AbnIncomeSerializer(abnincome, data=abnincome_data, partial=True)
+                                if abnincome_serializer.is_valid(raise_exception=True):
+                                    abnincome_serializer.save()
+
+                            if spouse_data:
+                                spouse_data = json.loads(spouse_data)
+                                spouse_id = spouse_data.get('id')
+                                year = spouse_data.get('year')
+                                form_date = FormDate.objects.get(user=user, year=year)
+
+                                if spouse_id:
+                                    try:
+                                        spouse = Spouse.objects.get(id=spouse_id)
+                                        spouse_serializer = SpouseSerializer(spouse, data=spouse_data, partial=True)
+                                        if spouse_serializer.is_valid(raise_exception=True):
+                                            spouse_serializer.save()
+                                    except Spouse.DoesNotExist:
+                                        return Response({'detail': 'Spouse not found.'}, status=status.HTTP_404_NOT_FOUND)
+                                else:
+                                    spouse_data['form_date'] = form_date.pk
+                                    spouse_serializer = SpouseSerializer(data=spouse_data)
+                                    if spouse_serializer.is_valid(raise_exception=True):
+                                        spouse_serializer.save()
+
+                                return Response({'detail': 'Spouse data processed successfully.'}, status=status.HTTP_200_OK)
+                            return Response({'detail': 'User data updated successfully.'}, status=status.HTTP_200_OK)
+                        except (Abn_income.DoesNotExist, Spouse.DoesNotExist):
+                            return Response({'detail': 'ABN income or spouse data not found.'}, status=status.HTTP_404_NOT_FOUND)                        
                     else:
                         form_date = FormDate.objects.get(user=user, year=year_param)
                 except FormDate.DoesNotExist:
@@ -806,30 +855,7 @@ class AllUsersView(APIView):
                             return Response({'detail': f'Additional information for {user.first_name} updated successfully.'}, status=status.HTTP_200_OK)
                     except Additionalinformationandsupportingdocuments.DoesNotExist:
                         return Response({'detail': 'Additional information not found.'}, status=status.HTTP_404_NOT_FOUND)
-                else:
-                    try:
-                        spouse_data = request.data.get('spouse_data')
-                        abnincome_data = request.data.get('abnincome_data')
-                        serializer = UserUpdateSerializer(user, data=request.data, partial=True)
-                        if serializer.is_valid(raise_exception=True):
-                            serializer.save()
 
-                        if abnincome_data:
-                            abnincome_data = json.loads(abnincome_data)
-                            abnincome = Abn_income.objects.get(form_date=form_date, id=abnincome_data.get('id'))
-                            abnincome_serializer = AbnIncomeSerializer(abnincome, data=abnincome_data, partial=True)
-                            if abnincome_serializer.is_valid(raise_exception=True):
-                                abnincome_serializer.save()
-
-                        if spouse_data:
-                            spouse_data = json.loads(spouse_data)
-                            spouse = Spouse.objects.get(form_date=form_date, id=spouse_data.get('id'))
-                            spouse_serializer = SpouseSerializer(spouse, data=spouse_data, partial=True)
-                            if spouse_serializer.is_valid(raise_exception=True):
-                                spouse_serializer.save()
-                        return Response({'detail': 'User data updated successfully.'}, status=status.HTTP_200_OK)
-                    except (Abn_income.DoesNotExist, Spouse.DoesNotExist):
-                        return Response({'detail': 'ABN income or spouse data not found.'}, status=status.HTTP_404_NOT_FOUND)
             elif request.user.role == 'staff' and user.role == 'user':
                 if 'status' in request.data:
                     user.status = request.data['status']

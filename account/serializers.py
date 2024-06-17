@@ -98,7 +98,6 @@ class AdditionalInformationAndDocumentsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class FormDateSerializer(serializers.ModelSerializer):
-    abn_income = AbnIncomeSerializer(read_only=True)
     spouses = SpouseSerializer(read_only=True)
     residential_address = ResidentialAddressSerializer(read_only=True)
     bank_details = BankDetailsSerializer(read_only=True)
@@ -255,12 +254,13 @@ class UserDataSerializer(serializers.ModelSerializer):
     referral_data = ReferralUserSerializer(source='referercode', read_only=True, many=True)
     refuserstatus = RefUserStatusUpdatesSerializer(source='referral_data', many=True, read_only=True)
     formdata = serializers.SerializerMethodField()
+    abn_income = AbnIncomeSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'title', 'first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth',
-            'numberofdependents', 'gender', 'tfn', 'abn', 'spouse', 'medicareinformation', 'is_export',
+            'numberofdependents', 'gender', 'tfn', 'abn','abn_income', 'spouse', 'medicareinformation', 'is_export',
             'is_active', 'role', 'status', 'payment_status', 'created_at', 'updated_at', 'last_login',
             'referral_data', 'formdata', 'refuserstatus'
         ]
