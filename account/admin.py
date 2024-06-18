@@ -81,7 +81,7 @@ class UserModelAdmin(BaseUserAdmin):
     fieldsets = (
         ('User Credentials', {'fields': ('email', 'tfn', 'token', 'password')}),
         ('Personal info', {'fields': ('first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth', 'numberofdependents', 'gender', 'abn', 'spouse', 'referercode', 'created_at', 'last_login')}),
-        ('Permissions', {'fields': ('is_export', 'role', 'is_active', 'is_admin',)}),
+        ('Permissions', {'fields': ('is_export', 'payment_status', 'role', 'is_active', 'is_admin',)}),
     )
     add_fieldsets = (
         (None, {
