@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.contrib.auth import views as auth_views
 from account import views as account_views
+from payment.views import StripeWebhookView as webhook
 from django.conf.urls.static import static
 
 urlpatterns = [
@@ -10,5 +11,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/',include('account.urls')),
     path('',include('payment.urls')),
+    path('webhook/', webhook.as_view(), name='stripe-webhook'),
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

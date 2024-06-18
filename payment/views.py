@@ -71,22 +71,24 @@ class AuthStripeCheckoutView(APIView):
 
 class StripeWebhookView(APIView):
     def post(self, request):
-        payload = request.body
-        sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+        payload = request.body.decode('utf-8')
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
         event = None
+
+        if not sig_header:
+            return JsonResponse({'error': 'Missing signature header'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
         except ValueError as e:
-            return JsonResponse({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({'error': 'Invalid payload', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except stripe.error.SignatureVerificationError as e:
-
-            return JsonResponse({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({'error': 'Invalid signature', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         if event['type'] == 'checkout.session.completed':
             session = event['data']['object']
-
             user_email = session.get('customer_email')
             if user_email:
                 try:

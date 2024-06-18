@@ -134,32 +134,31 @@ class CheckEmailView(APIView):
 
         return Response({'message': 'Token sent'}, status=status.HTTP_200_OK)
     
-class AdminRegistrationView(APIView):
-    renderer_classes = [UserRenderer]
-    permission_classes = [IsAuthenticated]
-    def post(self, request, format=None):
-        if not request.user.role == 'admin':
-            return Response({'error': 'You do not have the authority to proceed.'}, status=status.HTTP_403_FORBIDDEN)
+class ResendView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+           
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'message': 'Email or Tfn doesn\'t exist'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not user.is_active:
+            return Response({'message': 'Please verify your email first'}, status=status.HTTP_403_FORBIDDEN)
+
+        if user.token:
+            user.token = None
+            user.save()
         
-        password = request.data['password']
-        serializer = AdminRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save() 
-        if request.data['role'] == "referuser":
-            print(request.data)
-            company = request.data['company_name']
-            company_logo = request.data['company_logo']
-            isrequired  = request.data['isrequired']
-            commissiontype = request.data['commissiontype']
-            commission = request.data['commission']
-            ReferralUser.objects.create(user=user, company=company, company_logo=company_logo, isrequired =isrequired ,commissiontype=commissiontype, commission=commission)
-        
+        token = str(generate_unique_four_digit_number())
+        user.token = token
+        user.save()
+
         if user:
-            email_subject = "Account Created"
-            message = render_to_string('GlodenUSer.html', {
+            email_subject = "Your One-Time Password (OTP) For a Secure Access"
+            message = render_to_string('email_confirmation.html', {
                 'name': user.first_name,
-                'message' : "Your Account has been Created Successfully. This is your Password to login plz reset your password after login. Use your registred email and password to login",
-                'password' : password
+                'token': token
             })
             email_message = EmailMessage(
                 email_subject,
@@ -171,8 +170,70 @@ class AdminRegistrationView(APIView):
             email_message.fail_silently = False
             email_message.send()
 
-        return Response({'message':'Successfully User Created'}, status=status.HTTP_201_CREATED)
+        return Response({'message': 'Token sent'}, status=status.HTTP_200_OK)
+    
+class AdminRegistrationView(APIView):
+    renderer_classes = [UserRenderer]
+    permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
+    def post(self, request, format=None):
+        try:
+            if not request.user.role == 'admin':
+                return Response({'error': 'You do not have the authority to proceed.'}, status=status.HTTP_403_FORBIDDEN)
+            
+            password = request.data['password']
+            serializer = AdminRegistrationSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            user = serializer.save()
+            
+            if request.data['role'] == "referuser":
+                print(request.data)
+                company = request.data['company_name']
+                company_logo = request.data.get('company_logo', None)
+                isrequired = request.data['isrequired']
+                commissiontype = request.data['commissiontype']
+                commission = request.data['commission']
+                
+                ReferralUser.objects.create(
+                    user=user,
+                    company=company,
+                    company_logo=company_logo,
+                    isrequired=isrequired,
+                    commissiontype=commissiontype,
+                    commission=commission
+                )
+
+            if user:
+                email_subject = "Account Created"
+                message = render_to_string('GlodenUSer.html', {
+                    'name': user.first_name,
+                    'message': "Your Account has been Created Successfully. This is your Password to login plz reset your password after login. Use your registered email and password to login",
+                    'password': password,
+                    "commission" : commission
+                })
+                email_message = EmailMessage(
+                    email_subject,
+                    message,
+                    settings.EMAIL_HOST_USER,
+                    [user.email],
+                )
+                email_message.content_subtype = "html"
+                email_message.fail_silently = False
+                email_message.send()
+
+            return Response({'message': 'Successfully User Created'}, status=status.HTTP_201_CREATED)
+
+        except ValidationError as e:
+            error_messages = []
+            for field, errors in e.detail.items():
+                error_messages.extend(errors)
+            print(f"Validation error occurred during user registration: {error_messages}")  # Log the validation error details
+            transaction.set_rollback(True)
+            return Response({'error': ' '.join(error_messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        
 class UserRegistrationView(APIView):
     renderer_classes = [UserRenderer]
     def decrypt_data(self, encrypted_data):
@@ -355,8 +416,7 @@ class UserRegistrationView(APIView):
                 email_subject = "Account Registration complete"
                 message = render_to_string('message.html', {
                     'name': user.first_name,
-                    'message' : "Your account has been successfully registered and is now under review. We will notify you vie email once your document have been verified."
-                })
+                            })
                 email_message = EmailMessage(
                     email_subject,
                     message,
@@ -579,13 +639,60 @@ class AbNormalUser(APIView):
             if user is not None: 
                 if user.role == 'user':
                     return Response({'errors': {'role': ["User is not allowed to login through this portal"]}}, status=status.HTTP_403_FORBIDDEN)
-                token = get_tokens_for_user(user)
-                return Response({'token': token, 'role': user.role, 'msg': 'Login Success'}, status=status.HTTP_200_OK)
+                # token = get_tokens_for_user(user)
+                # return Response({'token': token, 'role': user.role, 'msg': 'Login Success'}, status=status.HTTP_200_OK)
+                if user.token:
+                    user.token = None
+                    user.save()
+                
+                token = str(generate_unique_four_digit_number())
+                user.token = token
+                user.save()
+
+                if user:
+                    email_subject = "Your One-Time Password (OTP) For a Secure Access"
+                    message = render_to_string('email_confirmation.html', {
+                        'name': user.first_name,
+                        'token': token
+                    })
+                    email_message = EmailMessage(
+                        email_subject,
+                        message,
+                        settings.EMAIL_HOST_USER,
+                        [user.email],
+                    )
+                    email_message.content_subtype = "html"
+                    email_message.fail_silently = False
+                    email_message.send()
+                return Response({'message': 'Token sent'}, status=status.HTTP_200_OK)
             else:
                 return Response({'errors': {'non_field_errors': ["Password doesn't match"]}}, status=status.HTTP_404_NOT_FOUND)
         else:
             return Response({'errors': {'user': ["Your Accoutn is Not Active "]}}, status=status.HTTP_404_NOT_FOUND)
- 
+
+class TwoFaView(APIView):
+    renderer_classes = [UserRenderer]
+   
+    def post(self, request, format=None):
+        email_or_tfn = request.data.get('email')
+        token = request.data.get('otp')
+
+        try:
+            user = User.objects.get(email = email_or_tfn)
+        except User.DoesNotExist:
+            return Response({'errors': {'user': ["User doesn't exist! Please register with a valid email or username"]}}, status=status.HTTP_404_NOT_FOUND)
+        
+        if not user.token:
+            return Response({'errors': {'token': ["Invalid or expired token."]}}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.token == token:
+            user.token = None
+            user.save()
+            auth_token = get_tokens_for_user(user)
+            return Response({'token': auth_token,'role': user.role, 'message': 'Login success'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'errors': {'non_field_errors': ["Credentials don't match"]}}, status=status.HTTP_400_BAD_REQUEST)
+
 class UserProfileView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]

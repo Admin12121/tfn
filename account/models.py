@@ -183,10 +183,7 @@ class ReferralUser(models.Model):
                 self.referrercode = self.generate_referrercode()
                 encrypted_data = self.encrypt_data()
                 url = self.generate_qr_code(encrypted_data)
-                
-                # Set the referrerurl field
                 self.referrerurl = url
-                # Save the instance again to update referrercode, qrcode, and referrerurl
                 super().save(update_fields=['referrercode', 'qrcode', 'referrerurl'])
 
                 self.send_email_with_qrcode()
@@ -251,6 +248,7 @@ class ReferralUser(models.Model):
                 'user': self.user,
                 'referrercode': self.referrercode,
                 'referrerurl': self.referrerurl,
+                'commission': self.commission
             }
             message = render_to_string('qrcode.html', context)
             
