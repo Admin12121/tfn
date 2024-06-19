@@ -871,8 +871,8 @@ class AllUsersView(APIView):
                     referral_user = ReferralUser.objects.get(user=user)
                     
                     referral_user.company = request.data.get('company_name', referral_user.company)
-                    referral_user.isrequired = request.data.get('isrequired', referral_user.isrequired)
-                    referral_user.commissiontype = request.data.get('commissiontype', referral_user.commissiontype)
+                    referral_user.isrequired = self.parse_boolean(request.data.get('isrequired', referral_user.isrequired))
+                    referral_user.commissiontype = self.parse_boolean(request.data.get('commissiontype', referral_user.commissiontype))
                     referral_user.commission = request.data.get('commission', referral_user.commission)
                     
                     company_logo = request.data.get('company_logo')
@@ -1014,6 +1014,19 @@ class AllUsersView(APIView):
                     return Response({'detail': 'User status updated successfully.'}, status=status.HTTP_200_OK)
                 else:
                     return Response({'detail': 'Staff can only update the status field.'}, status=status.HTTP_403_FORBIDDEN)
+                
+    def parse_boolean(self, value):
+        if isinstance(value, str):
+            value_lower = value.lower()
+            if value_lower == "true":
+                return True
+            elif value_lower == "false":
+                return False
+            elif value_lower == "1":
+                return True
+            elif value_lower == "0":
+                return False
+        return value
 
 class ClientuserStatusUpdates(APIView):
     renderer_classes = [UserRenderer]
