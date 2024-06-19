@@ -315,7 +315,7 @@ class UserRegistrationView(APIView):
                     except Exception as e:
                         print(f"Error in decrypting or processing referral data: {e}")
 
-                if referrercode:
+                elif referrercode:
                     print(referrercode)
                     try:
                         referral_user = ReferralUser.objects.get(referrercode=referrercode)
@@ -863,27 +863,29 @@ class AllUsersView(APIView):
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response({'detail': 'Invalid role or request data'}, status=status.HTTP_400_BAD_REQUEST)
         elif user_param and role_param == "referuser":
-            print(request.data)
             serializer = AdminandStaffUserDataSerializer(user, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
-                serializer.save()
-                try:
-                    referral_user = ReferralUser.objects.get(user=user)
-                    
-                    referral_user.company = request.data.get('company_name', referral_user.company)
-                    referral_user.isrequired = self.parse_boolean(request.data.get('isrequired', referral_user.isrequired))
-                    referral_user.commissiontype = self.parse_boolean(request.data.get('commissiontype', referral_user.commissiontype))
-                    referral_user.commission = request.data.get('commission', referral_user.commission)
-                    
-                    company_logo = request.data.get('company_logo')
-                    if company_logo and isinstance(company_logo, InMemoryUploadedFile):
-                        referral_user.company_logo = company_logo
+                with transaction.atomic():
+                    serializer.save()
 
-                    referral_user.save()
-                except ReferralUser.DoesNotExist:
-                    return Response({'detail': 'Invalid role or request data'}, status=status.HTTP_400_BAD_REQUEST)
-                except Exception as e:
-                    return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                    try:
+                        referral_user = user.referuser
+
+                        referral_user.company = request.data.get('company_name', referral_user.company)
+                        referral_user.isrequired = self.parse_boolean(request.data.get('isRequired', referral_user.isrequired))
+                        referral_user.commissiontype = self.parse_boolean(request.data.get('commissiontype', referral_user.commissiontype))
+                        referral_user.commission = request.data.get('commission', referral_user.commission)
+
+                        company_logo = request.data.get('company_logo')
+                        if company_logo and isinstance(company_logo, InMemoryUploadedFile):
+                            referral_user.company_logo = company_logo
+
+                        referral_user.save()
+
+                    except ReferralUser.DoesNotExist:
+                        return Response({'detail': 'ReferralUser not found.'}, status=status.HTTP_400_BAD_REQUEST)
+                    except Exception as e:
+                        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
                 return Response(serializer.data, status=status.HTTP_200_OK)
         else:
@@ -1016,17 +1018,7 @@ class AllUsersView(APIView):
                     return Response({'detail': 'Staff can only update the status field.'}, status=status.HTTP_403_FORBIDDEN)
                 
     def parse_boolean(self, value):
-        if isinstance(value, str):
-            value_lower = value.lower()
-            if value_lower == "true":
-                return True
-            elif value_lower == "false":
-                return False
-            elif value_lower == "1":
-                return True
-            elif value_lower == "0":
-                return False
-        return value
+        return value.lower() in ('true', '1') if isinstance(value, str) else bool(value)
 
 class ClientuserStatusUpdates(APIView):
     renderer_classes = [UserRenderer]
