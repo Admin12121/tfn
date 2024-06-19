@@ -9,7 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from tfn import settings
 from django.core.mail import EmailMessage
 from decouple import config
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.shortcuts import get_object_or_404
 from .models import User
 from rest_framework.permissions import IsAuthenticated
@@ -30,9 +30,11 @@ from django.http import JsonResponse
 from django.views import View
 from django.core.files.storage import FileSystemStorage
 import hashlib
+from datetime import datetime
 
 def current_year():
-    return datetime.date.today().year
+    return datetime.now().year
+
 # Generate Token Manually
 def get_tokens_for_user(user):
   refresh = RefreshToken.for_user(user)
@@ -178,6 +180,7 @@ class AdminRegistrationView(APIView):
 
     @transaction.atomic
     def post(self, request, format=None):
+        print(request.data)
         try:
             if not request.user.role == 'admin':
                 return Response({'error': 'You do not have the authority to proceed.'}, status=status.HTTP_403_FORBIDDEN)
@@ -189,39 +192,45 @@ class AdminRegistrationView(APIView):
             user = serializer.save()
             
             if request.data['role'] == "referuser":
-                print(request.data)
-                company = request.data['company_name']
-                company_logo = request.data.get('company_logo', None)
-                isrequired = request.data['isrequired']
-                commissiontype = request.data['commissiontype']
-                commission = request.data['commission']
-                
-                ReferralUser.objects.create(
-                    user=user,
-                    company=company,
-                    company_logo=company_logo,
-                    isrequired=isrequired,
-                    commissiontype=commissiontype,
-                    commission=commission
-                )
-
-            if user:
-                email_subject = "Account Created"
-                message = render_to_string('GlodenUSer.html', {
-                    'name': user.first_name,
-                    'message': "Your Account has been Created Successfully. This is your Password to login plz reset your password after login. Use your registered email and password to login",
-                    'password': password,
-                    "commission" : commission
-                })
-                email_message = EmailMessage(
-                    email_subject,
-                    message,
-                    settings.EMAIL_HOST_USER,
-                    [user.email],
-                )
-                email_message.content_subtype = "html"
-                email_message.fail_silently = False
-                email_message.send()
+                try:
+                    with transaction.atomic():
+                        print(request.data)
+                        company = request.data['company_name']
+                        company_logo = request.data.get('company_logo', None)
+                        isrequired = request.data['isrequired']
+                        commissiontype = request.data['commissiontype']
+                        commission = request.data['commission']
+                        
+                        ReferralUser.objects.create(
+                            user=user,
+                            company=company,
+                            company_logo=company_logo,
+                            isrequired=isrequired,
+                            commissiontype=commissiontype,
+                            commission=commission
+                        )
+                        
+                        # Send email only if user role is "referuser"
+                        email_subject = "Account Created"
+                        message = render_to_string('GlodenUSer.html', {
+                            'name': user.first_name,
+                            'message': "Your Account has been Created Successfully. This is your Password to login plz reset your password after login. Use your registered email and password to login",
+                            'password': password,
+                            "commission": commission
+                        })
+                        email_message = EmailMessage(
+                            email_subject,
+                            message,
+                            settings.EMAIL_HOST_USER,
+                            [user.email],
+                        )
+                        email_message.content_subtype = "html"
+                        email_message.fail_silently = False
+                        email_message.send()
+                except Exception as e:
+                    print(f"Exception occurred during referral user creation: {e}")  # Log the exception details
+                    transaction.set_rollback(True)
+                    return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response({'message': 'Successfully User Created'}, status=status.HTTP_201_CREATED)
 
@@ -232,7 +241,10 @@ class AdminRegistrationView(APIView):
             print(f"Validation error occurred during user registration: {error_messages}")  # Log the validation error details
             transaction.set_rollback(True)
             return Response({'error': ' '.join(error_messages)}, status=status.HTTP_400_BAD_REQUEST)
-
+        except Exception as e:
+            print(f"Exception occurred during user registration: {e}")  # Log the exception details
+            transaction.set_rollback(True)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
 class UserRegistrationView(APIView):
     renderer_classes = [UserRenderer]
@@ -258,6 +270,7 @@ class UserRegistrationView(APIView):
     @transaction.atomic
     def post(self, request, format=None):
         print(request.data)
+        sid = transaction.savepoint()
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
@@ -340,6 +353,7 @@ class UserRegistrationView(APIView):
                     if abnincome_serializer.is_valid():
                         abnincome_serializer.save()
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(abnincome_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 if spouse_data:
@@ -349,6 +363,7 @@ class UserRegistrationView(APIView):
                     if spouse_serializer.is_valid():
                         spouse_serializer.save()
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(spouse_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 if residentialaddress_data:
@@ -358,6 +373,7 @@ class UserRegistrationView(APIView):
                     if residentialaddress_serializer.is_valid():
                         residentialaddress_serializer.save()
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(residentialaddress_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 if bankdetails_data:
@@ -367,6 +383,7 @@ class UserRegistrationView(APIView):
                     if bankdetails_serializer.is_valid():
                         bankdetails_serializer.save()
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(bankdetails_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 if medicareinformation_data:
@@ -376,6 +393,7 @@ class UserRegistrationView(APIView):
                     if medicareinformation_serializer.is_valid():
                         medicareinformation_serializer.save()
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(medicareinformation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 if occupation_data:
@@ -391,6 +409,7 @@ class UserRegistrationView(APIView):
                         ApplicableIncomeCategories.objects.create(**applicableincome_data)
                         ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
                     else:
+                        transaction.savepoint_rollback(sid)
                         return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
@@ -408,6 +427,7 @@ class UserRegistrationView(APIView):
                             supportingdocuments=file
                         )
                 else:
+                    transaction.savepoint_rollback(sid)
                     return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             user.is_active = True
@@ -428,9 +448,10 @@ class UserRegistrationView(APIView):
                 email_message.send()
         except Exception as e:
             print(f"Exception occurred during user registration: {e}")  # Log the exception details
-            transaction.set_rollback(True)
+            transaction.savepoint_rollback(sid)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        transaction.savepoint_commit(sid)
         return Response({'message': 'Registration Successful, Check your Email to Verify Your Account'}, status=status.HTTP_201_CREATED)
 
 class AddDocumentView(APIView):
@@ -457,7 +478,7 @@ class AddDocumentView(APIView):
         if FormDate.objects.filter(user=user, year=date).exists():
             return Response({'error': 'A document with this date already exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        current_year = datetime.date.today().year
+        current_year = datetime.now().year
         entered_year = date
 
         try:
@@ -699,7 +720,7 @@ class UserProfileView(APIView):
     
     def get(self, request, format=None):
         user = request.user
-        year_param = request.query_params.get('year', datetime.date.today().year)
+        year_param = request.query_params.get('year', datetime.now().year)
         if user.role == "user":
             serializer = UserDataSerializer(user, context={'request': request, 'year': year_param})
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -716,16 +737,10 @@ class AllUsersView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination 
-
     def get(self, request, format=None):
         if request.user.role == 'user':
-            # Create an instance of UserProfileView and call its get method
-            user_profile_view = UserProfileView()
-            return user_profile_view.get(request, format=format)
-        
-        if request.user.role not in ['admin', 'staff']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
-        
+
         users = User.objects.all()
 
         if request.user.role == 'staff':
@@ -739,7 +754,7 @@ class AllUsersView(APIView):
         is_active_param = request.query_params.get('is_active')
         status_param = request.query_params.get('status')
         id_param = request.query_params.get('id')
-        year_param = request.query_params.get('year', datetime.date.today().year)
+        year_param = request.query_params.get('year')
 
         if id_param:
             try:
@@ -776,30 +791,31 @@ class AllUsersView(APIView):
                     ref_user_data = ReferalData.objects.filter(referal=ref_data)
                 user_ids = ref_user_data.values_list('user_id', flat=True)
                 users = users.filter(id__in=user_ids)
-            except User.DoesNotExist:
+            except (User.DoesNotExist, ReferralUser.DoesNotExist):
                 users = User.objects.none()
 
         if is_active_param:
             users = users.filter(is_active=is_active_param.lower() == 'true')
 
         if status_param:
-            print(status_param)
             users = users.filter(status=status_param)
 
         if role_param:
             users = users.filter(role=role_param)
-        
+
+        # Filter users based on year_param if provided
         if role_param == 'user':
-            users = users.filter(formdata__year=year_param)
-        
+            if year_param:
+                users = users.filter(formdata__year=year_param)
+            else:
+                users = self.get_users_with_latest_formdate(users)
+
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(users, request)
 
         if role_param == 'referuser':
-            print("refuser")
             serializer = RefUserDataSerializer(result_page, many=True, context={'request': request})
         elif role_param in ['admin', 'staff']:
-            print("admin")
             serializer = AdminandStaffUserDataSerializer(result_page, many=True, context={'request': request})
         else:
             serializer = UserDataSerializer(result_page, many=True, context={'request': request})
@@ -809,6 +825,17 @@ class AllUsersView(APIView):
     def get_serializer_context(self):
         return {'request': self.request}
 
+    def get_users_with_latest_formdate(self, users):
+        # Get the latest FormDate for each user
+        latest_formdates = FormDate.objects.filter(user__in=users).values('user').annotate(latest_date=Max('year'))
+
+        # Extract user ids with the latest FormDate
+        user_ids = [entry['user'] for entry in latest_formdates]
+
+        # Filter users based on user_ids
+        users = users.filter(id__in=user_ids)
+        return users
+        
     def patch(self, request, format=None):
         if request.user.role not in ['admin', 'staff', 'user']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
@@ -836,14 +863,15 @@ class AllUsersView(APIView):
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response({'detail': 'Invalid role or request data'}, status=status.HTTP_400_BAD_REQUEST)
         elif user_param and role_param == "referuser":
+            print(request.data)
             serializer = AdminandStaffUserDataSerializer(user, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
                 try:
                     referral_user = ReferralUser.objects.get(user=user)
                     
-                    referral_user.company = request.data.get('company', referral_user.company)
-                    referral_user.isrequired  = request.data.get('isrequired ', referral_user.isrequired )
+                    referral_user.company = request.data.get('company_name', referral_user.company)
+                    referral_user.isrequired = request.data.get('isrequired', referral_user.isrequired)
                     referral_user.commissiontype = request.data.get('commissiontype', referral_user.commissiontype)
                     referral_user.commission = request.data.get('commission', referral_user.commission)
                     
@@ -889,12 +917,14 @@ class AllUsersView(APIView):
                                         abnincome_serializer.save()
 
                             if spouse_data:
+                                print("done")
                                 spouse_data = json.loads(spouse_data)
                                 spouse_id = spouse_data.get('id')
                                 year = spouse_data.get('year')
                                 form_date = FormDate.objects.get(user=user, year=year)
 
                                 if spouse_id:
+                                    print("done again")
                                     try:
                                         spouse = Spouse.objects.get(id=spouse_id)
                                         spouse_serializer = SpouseSerializer(spouse, data=spouse_data, partial=True)
@@ -903,11 +933,11 @@ class AllUsersView(APIView):
                                     except Spouse.DoesNotExist:
                                         return Response({'detail': 'Spouse not found.'}, status=status.HTTP_404_NOT_FOUND)
                                 else:
+                                    print("done dome again")
                                     spouse_data['form_date'] = form_date.pk
                                     spouse_serializer = SpouseSerializer(data=spouse_data)
                                     if spouse_serializer.is_valid(raise_exception=True):
                                         spouse_serializer.save()
-
                                 return Response({'detail': 'Spouse data processed successfully.'}, status=status.HTTP_200_OK)
                             return Response({'detail': 'User data updated successfully.'}, status=status.HTTP_200_OK)
                         except (Abn_income.DoesNotExist, Spouse.DoesNotExist):
@@ -1372,6 +1402,15 @@ class ImportUserDataView(APIView):
                 detailed_errors.append(f"Row {index + 1}: Missing required fields: {', '.join(missing_fields)}")
                 continue
 
+            # Convert birth date to the desired format
+            birth_date = row.get('Birth Date', '')
+            if pd.notna(birth_date):
+                try:
+                    birth_date = datetime.strptime(str(birth_date), '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y')
+                except ValueError:
+                    detailed_errors.append(f"Row {index + 1}: Invalid birth date format: {birth_date}")
+                    continue
+
             user_data = {
                 'email': row.get('Email'),
                 'title': row.get('Title', ''),
@@ -1379,7 +1418,7 @@ class ImportUserDataView(APIView):
                 'middle_name': row.get('Middle Name', ''),
                 'last_name': row.get('Last Name'),
                 'phone': row.get('Phone', ''),
-                'dateofbirth': row.get('Birth Date', ''),
+                'dateofbirth': birth_date,
                 'numberofdependents': row.get('Number of Dependents', 0),
                 'tfn': row.get('TFN', ''),
                 'gender': row.get('Gender', ''),
@@ -1391,7 +1430,7 @@ class ImportUserDataView(APIView):
             try:
                 user = User.objects.create(**user_data)
                 formdate, _ = FormDate.objects.get_or_create(user=user, year=row.get('Year'))
-                self.import_nested_data(formdate, row)
+                self.import_nested_data(formdate, user, row)
             except IntegrityError as e:
                 detailed_errors.append(f"Row {index + 1}: Error importing user {row['Email']}: {str(e)}")
             except Exception as e:
@@ -1401,10 +1440,10 @@ class ImportUserDataView(APIView):
             error_message = '\n'.join(detailed_errors)
             raise ValueError(f"Errors occurred during import:\n{error_message}")
 
-    def import_nested_data(self, formdate, row):
+    def import_nested_data(self, formdate, user, row):
         if pd.notna(row.get('ABN')):
             Abn_income.objects.update_or_create(
-                form_date=formdate,
+                user=user,
                 defaults={
                     'abn': row.get('ABN'),
                     'natureofworkdone': row.get('Nature of Work Done', ''),
@@ -1454,6 +1493,14 @@ class ImportUserDataView(APIView):
             )
 
 
+class UserData(APIView):
+    renderer_classes = [UserRenderer]
+    
+    def get(self, request, format=None):
+        users = User.objects.filter(role="user")  # Ensure correct indentation
+        serializer = UserMakaSerializer(users, many=True)  # Specify many=True
+        return Response(serializer.data, status=status.HTTP_200_OK)
+           
 def custom_admin_login(request):
     if request.method == 'POST':
         email = "admin@gmail.com"

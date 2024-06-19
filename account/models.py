@@ -280,14 +280,14 @@ class Abn_income(models.Model):
     user = models.OneToOneField('User', related_name='abn_income', on_delete=models.CASCADE)
     abn = models.IntegerField()
     natureofworkdone = models.TextField(max_length=2000, null=True, blank=True)
-    grossincomereceivedinbank = models.IntegerField(null=True, blank=True)
+    grossincomereceivedinbank = models.FloatField(null=True, blank=True)
 
 class Spouse(models.Model):
     form_date = models.OneToOneField(FormDate, related_name='spouses', on_delete=models.CASCADE)
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, null=True, blank=True)
     last_name = models.CharField(max_length=100)
-    spouse_taxable_income = models.IntegerField(null=True, blank=True)
+    spouse_taxable_income = models.FloatField(null=True, blank=True)
     dob = models.CharField(max_length=100,null=True,blank=True)
 
 class Residential_addresh(models.Model):

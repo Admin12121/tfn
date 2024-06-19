@@ -127,11 +127,30 @@ class FormDateSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         self.child_context = {'context': self.context}
 
+    def get_serialized_data(self, instance, serializer):
+        """Helper method to return serialized data if the attribute exists, else None."""
+        if hasattr(instance, serializer.Meta.model._meta.model_name):
+            attribute = getattr(instance, serializer.Meta.model._meta.model_name)
+            if attribute:
+                return serializer(attribute, context=self.context).data
+        return None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['additional_information'] = AdditionalInformationAndDocumentsSerializer(instance.additional_information, context=self.context).data
+        related_serializers = {
+            'spouses': SpouseSerializer,
+            'residential_address': ResidentialAddressSerializer,
+            'bank_details': BankDetailsSerializer,
+            'medicare_info': MedicareInformationSerializer,
+            'occupation': OccupationDataSerializer,
+            'additional_information': AdditionalInformationAndDocumentsSerializer,
+        }
+
+        for field_name, serializer_class in related_serializers.items():
+            representation[field_name] = self.get_serialized_data(instance, serializer_class)
+
         return representation
+
     
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -377,3 +396,12 @@ class UserPasswordResetSerializer(serializers.Serializer):
         except DjangoUnicodeDecodeError as identifier:
             PasswordResetTokenGenerator().check_token(user, token)
             raise serializers.ValidationError('Token is not Valid or Expired')
+        
+
+
+class UserMakaSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ['email']
+
