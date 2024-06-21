@@ -1502,7 +1502,7 @@ class UserData(APIView):
     renderer_classes = [UserRenderer]
     
     def get(self, request, format=None):
-        users = User.objects.filter(role="user")  # Ensure correct indentation
+        users = User.objects.all()  # Ensure correct indentation
         serializer = UserMakaSerializer(users, many=True)  # Specify many=True
         return Response(serializer.data, status=status.HTTP_200_OK)
            
