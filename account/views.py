@@ -31,6 +31,7 @@ from django.views import View
 from django.core.files.storage import FileSystemStorage
 import hashlib
 from datetime import datetime
+from django.core.exceptions import ObjectDoesNotExist
 
 def current_year():
     return datetime.now().year
@@ -479,10 +480,11 @@ class AddDocumentView(APIView):
             return Response({'error': 'A document with this date already exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
         
         current_year = datetime.now().year
-        entered_year = date
+        entered_year = int(date)
 
         try:
-            form_date = FormDate.objects.create(user=user, year = date)
+            # Create the FormDate for the current document
+            form_date = FormDate.objects.create(user=user, year=entered_year)
 
             if entered_year == current_year:
                 user.status = 'received'
@@ -491,10 +493,10 @@ class AddDocumentView(APIView):
                 user.save()
 
                 if user:
-                    email_subject = "Account registrater Successfull"
+                    email_subject = "Account Registration Successful"
                     message = render_to_string('message.html', {
                         'name': user.first_name,
-                        'message' : "Your New Document for {entered_year} has been updated and Sent to Supervisor for review once your Document is Verified you Will be inform through email"
+                        'message': f"Your New Document for {entered_year} has been updated and sent to Supervisor for review. Once your Document is verified, you will be informed through email."
                     })
                     email_message = EmailMessage(
                         email_subject,
@@ -506,18 +508,46 @@ class AddDocumentView(APIView):
                     email_message.fail_silently = False
                     email_message.send()
             
-
+            # Initialize data from request
             abnincome_data = request.data.get('abnincome_data')
             spouse_data = request.data.get('spouse_data')
             residentialaddress_data = request.data.get('residentialaddress')
-            bankdetails_data = request.data.get('bankdetails')
             medicareinformation_data = request.data.get('medicareinformation_data')
             occupation_data = request.data.get('occupation')
             additionalinformation_data = {
                 'note': request.data.get('note'),
             }
+
+            # Auto-fill bankdetails_data if not provided
+            bankdetails_data = request.data.get('bankdetails')
+            if not bankdetails_data:
+                try:
+                    latest_form_date = FormDate.objects.filter(user=user).exclude(id=form_date.pk).latest('year')
+                    latest_bank_details = BankDetails.objects.get(form_date=latest_form_date)
+                    bankdetails_data = {
+                        'etaaccountname': latest_bank_details.etaaccountname,
+                        'eftbsbnumber': latest_bank_details.eftbsbnumber,
+                        'eftaccountnumber': latest_bank_details.eftaccountnumber,
+                        'form_date': form_date.pk
+                    }
+                    print(bankdetails_data)
+                except ObjectDoesNotExist:
+                    bankdetails_data = {
+                        'form_date': form_date.pk
+                    }
+
+            # Handle file uploads and auto-fill if not provided
             passport_files, supporting_documents_files = self.handle_files(request)
 
+            if not passport_files:
+                try:
+                    latest_form_date = FormDate.objects.filter(user=user).exclude(id=form_date.pk).latest('year')
+                    latest_additional_info = Additionalinformationandsupportingdocuments.objects.get(form_date=latest_form_date)
+                    passport_files = Passport_DrivingLicense.objects.filter(AddFile=latest_additional_info)
+                except ObjectDoesNotExist:
+                    passport_files = []
+
+            # Process and save data
             if abnincome_data:
                 abnincome_data = json.loads(abnincome_data)
                 abnincome_data['form_date'] = form_date.pk
@@ -540,7 +570,8 @@ class AddDocumentView(APIView):
                 residentialaddress_serializer.save()
 
             if bankdetails_data:
-                bankdetails_data = json.loads(bankdetails_data)
+                if isinstance(bankdetails_data, str):
+                    bankdetails_data = json.loads(bankdetails_data)
                 bankdetails_data['form_date'] = form_date.pk
                 bankdetails_serializer = BankDetailsSerializer(data=bankdetails_data)
                 bankdetails_serializer.is_valid(raise_exception=True)
@@ -570,11 +601,16 @@ class AddDocumentView(APIView):
             additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
             if additional_info_serializer.is_valid():
                 additional_info_instance = additional_info_serializer.save()
-                for file in passport_files:
-                    Passport_DrivingLicense.objects.create(
-                        AddFile=additional_info_instance,
-                        passport=file
-                    )
+
+                # Use existing passport_files if not provided
+                if not request.FILES.getlist('passport_drivinglicense'):
+                    for passport_file in passport_files:
+                        Passport_DrivingLicense.objects.create(
+                            AddFile=additional_info_instance,
+                            passport=passport_file.passport  # Assuming the field is called 'passport'
+                        )
+                
+                # Save supporting documents only if provided
                 for file in supporting_documents_files:
                     SupportingDocuents.objects.create(
                         AddFile=additional_info_instance,
@@ -583,13 +619,11 @@ class AddDocumentView(APIView):
             else:
                 return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-
-
             return Response({'message': 'Document Added Successfully'}, status=status.HTTP_201_CREATED)
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        
 class UserActivationView(APIView):
     def post(self, request, format=None):
         try:
@@ -725,10 +759,10 @@ class UserProfileView(APIView):
             serializer = UserDataSerializer(user, context={'request': request, 'year': year_param})
             return Response(serializer.data, status=status.HTTP_200_OK)
         elif user.role == "referuser":
-            serializer = RefUserDataSerializer(user,context={'request': request})
+            serializer = RefUserDataSerializer(user, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
-        elif user.role == "admin" or user.role == "staff" :
-            serializer = AdminandStaffUserDataSerializer(user,context={'request': request})
+        elif user.role == "admin" or user.role == "staff":
+            serializer = AdminandStaffUserDataSerializer(user, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({"detail": "Some thing went wrong user does not exist"}, status=status.HTTP_404_NOT_FOUND)
@@ -736,10 +770,16 @@ class UserProfileView(APIView):
 class AllUsersView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
-    pagination_class = CustomPageNumberPagination 
+    pagination_class = CustomPageNumberPagination
+
     def get(self, request, format=None):
-        if request.user.role == 'user':
-            return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+        user = request.user
+        if user.role == "user":
+            # Mimic redirection to UserProfileView
+            user_profile_view = UserProfileView()
+            response = user_profile_view.get(request)
+            return response
 
         users = User.objects.all()
 
@@ -803,7 +843,6 @@ class AllUsersView(APIView):
         if role_param:
             users = users.filter(role=role_param)
 
-        # Filter users based on year_param if provided
         if role_param == 'user':
             if year_param:
                 users = users.filter(formdata__year=year_param)
@@ -826,13 +865,8 @@ class AllUsersView(APIView):
         return {'request': self.request}
 
     def get_users_with_latest_formdate(self, users):
-        # Get the latest FormDate for each user
         latest_formdates = FormDate.objects.filter(user__in=users).values('user').annotate(latest_date=Max('year'))
-
-        # Extract user ids with the latest FormDate
         user_ids = [entry['user'] for entry in latest_formdates]
-
-        # Filter users based on user_ids
         users = users.filter(id__in=user_ids)
         return users
         
@@ -872,10 +906,9 @@ class AllUsersView(APIView):
                         referral_user = user.referuser
 
                         referral_user.company = request.data.get('company_name', referral_user.company)
-                        referral_user.isrequired = self.parse_boolean(request.data.get('isRequired', referral_user.isrequired))
+                        referral_user.isrequired = self.parse_boolean(request.data.get('isrequired', referral_user.isrequired))
                         referral_user.commissiontype = self.parse_boolean(request.data.get('commissiontype', referral_user.commissiontype))
                         referral_user.commission = request.data.get('commission', referral_user.commission)
-
                         company_logo = request.data.get('company_logo')
                         if company_logo and isinstance(company_logo, InMemoryUploadedFile):
                             referral_user.company_logo = company_logo
@@ -1016,9 +1049,74 @@ class AllUsersView(APIView):
                     return Response({'detail': 'User status updated successfully.'}, status=status.HTTP_200_OK)
                 else:
                     return Response({'detail': 'Staff can only update the status field.'}, status=status.HTTP_403_FORBIDDEN)
+
+    def delete(self, request, format=None):
+        user_param = request.query_params.get('id')
+        formdate_param = request.query_params.get('formdateid')
+        
+        if not user_param and not formdate_param:
+            return Response({'error': 'Either User ID or FormDate ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_param and formdate_param:
+            try:
+                user = User.objects.get(id=user_param)
+                formdate_instance = FormDate.objects.get(id=formdate_param, user=user)
+
+                if request.user.role != 'admin':
+                    return Response({'error': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+                # Check if deleting this FormDate would leave no other FormDate for the user
+                other_formdates_count = FormDate.objects.filter(user=user).exclude(id=formdate_param).count()
+                if other_formdates_count == 0:
+                    return Response({'error': 'Cannot delete all FormDate data. At least one FormDate must exist for the user.'}, status=status.HTTP_400_BAD_REQUEST)
                 
+                formdate_instance.delete()
+                user.delete()
+                return Response({'message': 'User and related FormDate deleted successfully.'}, status=status.HTTP_200_OK)
+                
+            except User.DoesNotExist:
+                return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+            except FormDate.DoesNotExist:
+                return Response({'error': 'FormDate not found for the specified user.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user_param:
+            try:
+                user = User.objects.get(id=user_param)
+                if request.user.role != 'admin':
+                    return Response({'error': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+                # Check if there are any FormDate instances associated with the user
+                if FormDate.objects.filter(user=user).exists():
+                    user.delete()
+                    return Response({'message': 'User deleted successfully.'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'Cannot delete user. No FormDate data exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            except User.DoesNotExist:
+                return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if formdate_param:
+            try:
+                formdate_instance = FormDate.objects.get(id=formdate_param)
+                user = formdate_instance.user
+                if request.user.role != 'admin':
+                    return Response({'error': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+                
+                # Check if deleting this FormDate would leave no other FormDate for the user
+                other_formdates_count = FormDate.objects.filter(user=user).exclude(id=formdate_param).count()
+                if other_formdates_count == 0:
+                    return Response({'error': 'Cannot delete all FormDate data. At least one FormDate must exist for the user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                formdate_instance.delete()
+                return Response({'message': 'FormDate deleted successfully.'}, status=status.HTTP_200_OK)
+                
+            except FormDate.DoesNotExist:
+                return Response({'error': 'FormDate not found.'}, status=status.HTTP_404_NOT_FOUND)
+    
     def parse_boolean(self, value):
-        return value.lower() in ('true', '1') if isinstance(value, str) else bool(value)
+        if isinstance(value, str):
+            return value.lower() in ('true', '1')
+        return bool(value)
 
 class ClientuserStatusUpdates(APIView):
     renderer_classes = [UserRenderer]
@@ -1496,7 +1594,6 @@ class ImportUserDataView(APIView):
                     'date': row.get('Medicare Date')
                 }
             )
-
 
 class UserData(APIView):
     renderer_classes = [UserRenderer]

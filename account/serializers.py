@@ -11,6 +11,7 @@ from .models import *
 from decouple import config
 from django.contrib.auth import get_user_model
 from .generate_token import generate_unique_four_digit_number
+from datetime import datetime
 #User
 class FormChargeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -147,9 +148,14 @@ class FormDateSerializer(serializers.ModelSerializer):
         }
 
         for field_name, serializer_class in related_serializers.items():
-            representation[field_name] = self.get_serialized_data(instance, serializer_class)
+            related_instance = getattr(instance, field_name, None)
+            if related_instance is not None:
+                representation[field_name] = serializer_class(related_instance, context=self.context).data
+            else:
+                representation[field_name] = None
 
         return representation
+
 
     
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -302,32 +308,26 @@ class UserDataSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'title', 'first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth',
-            'numberofdependents', 'gender', 'tfn', 'abn','abn_income', 'spouse', 'medicareinformation', 'is_export',
+            'numberofdependents', 'gender', 'tfn', 'abn', 'abn_income', 'spouse', 'medicareinformation', 'is_export',
             'is_active', 'role', 'status', 'payment_status', 'created_at', 'updated_at', 'last_login',
             'referral_data', 'formdata', 'refuserstatus'
         ]
 
     def get_formdata(self, obj):
         request = self.context.get('request')
+        year_param = request.query_params.get('year', datetime.now().year)
         id_param = request.query_params.get('id')
 
-        user = request.user
-
-        # Check if the user is authenticated and if the requested user is the same as the authenticated user
-        if request.user.is_authenticated and obj == user:
+        if request.user.is_authenticated and obj == request.user:
             form_dates = obj.formdata.all()
         else:
-            if id_param:
-                # If the request is for a single user by ID, return all form data
+            if request.query_params.get('id'):
                 form_dates = obj.formdata.all()
             else:
-                # If the request is for all users, return only current year data
-                year_param = request.query_params.get('year', datetime.date.today().year)
                 form_dates = obj.formdata.filter(year=year_param)
 
         form_dates_data = FormDateSerializer(form_dates, many=True, context={'request': request}).data
         return form_dates_data[0] if form_dates_data and not id_param else form_dates_data
-
 
 class UserChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
