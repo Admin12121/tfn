@@ -403,5 +403,5 @@ class UserMakaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email']
+        fields = ['id']
 
