@@ -98,7 +98,7 @@ class User(AbstractBaseUser):
     phone = models.CharField(max_length=15)
     dateofbirth = models.CharField(max_length=100,null=True, blank=True)
     numberofdependents = models.IntegerField(null=True, blank=True)
-    tfn = models.IntegerField(null=True, blank=True)
+    tfn = models.BigIntegerField(null=True, blank=True)
     password = models.CharField(max_length=200, null=True, blank=True)
     token = models.CharField(max_length=10, null=True, blank=True, default='1234')
     gender = models.CharField(choices=Gender, max_length=30, null=True, blank=True)
