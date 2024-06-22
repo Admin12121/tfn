@@ -277,179 +277,204 @@ class UserRegistrationView(APIView):
             referrercode = request.data.get('referercode')
             referraluser_param = request.query_params.get('referraluser', None)
             serializer = UserRegistrationSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            token = None
+            # serializer.is_valid(raise_exception=True)
+            if serializer.is_valid():
+                token = None
 
-            if not referraluser_param:
-                token = str(generate_unique_four_digit_number())
-                serializer.context['token'] = token
+                if not referraluser_param:
+                    token = str(generate_unique_four_digit_number())
+                    serializer.context['token'] = token
 
-            user = serializer.save()
-            form_date = FormDate.objects.create(user=user)
+                user = serializer.save()
+                form_date = FormDate.objects.create(user=user)
 
-            if referraluser_param and 'company' in request.data:
-                company = request.data['company']
-                company_logo = request.data.get('company_logo')  # Use .get() to safely retrieve the value
-                if company_logo:  # Check if company_logo is not empty (assuming None or empty string are considered empty)
-                    ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
+                if referraluser_param and 'company' in request.data:
+                    company = request.data['company']
+                    company_logo = request.data.get('company_logo')  # Use .get() to safely retrieve the value
+                    if company_logo:  # Check if company_logo is not empty (assuming None or empty string are considered empty)
+                        ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
+                    else:
+                        ReferralUser.objects.create(user=user, company=company)  # Create without company_logo
+                    user.role = "referuser"
+                    user.is_active = False
+                    user.save()
+                    
                 else:
-                    ReferralUser.objects.create(user=user, company=company)  # Create without company_logo
-                user.role = "referuser"
-                user.is_active = False
+
+                    if encrypted_data:
+                        try:
+                            decrypted_data = self.decrypt_data(encrypted_data)
+                            referrercode, refer_user_id = decrypted_data.split(":")
+                            form_charge = FormCharge.objects.get(fixed=1)
+                            referral_user = ReferralUser.objects.filter(
+                                Q(user_id=refer_user_id) | Q(referrercode=referrercode)
+                            ).first()
+                            if referral_user:
+                                if referral_user.commissiontype:
+                                    commission_amt = (referral_user.commission / 100.0) * form_charge.amount
+                                else:
+                                    commission_amt = referral_user.commission
+                                ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
+                        except Exception as e:
+                            print(f"Error in decrypting or processing referral data: {e}")
+
+                    elif referrercode:
+                        print(referrercode)
+                        try:
+                            referral_user = ReferralUser.objects.get(referrercode=referrercode)
+                            form_charge = FormCharge.objects.get(fixed=1)
+                            if referral_user and form_charge:
+                                if referral_user.commissiontype:
+                                    commission_amt = (referral_user.commission / 100.0) * form_charge.amount
+                                else:
+                                    commission_amt = referral_user.commission
+                                print("Commision Amount",commission_amt)
+                                ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
+                                if not referral_user.isrequired:
+                                    user.payment_status = "paid"
+                                    user.save()
+                        except Exception as e :
+                            print(f"Error in decrypting or processing referral data: {e}")
+
+
+                    # Extract nested data from the request
+                    abnincome_data = request.data.get('abnincome_data')
+                    spouse_data = request.data.get('spouse_data')
+                    residentialaddress_data = request.data.get('residentialaddress')
+                    bankdetails_data = request.data.get('bankdetails')
+                    medicareinformation_data = request.data.get('medicareinformation_data')
+                    occupation_data = request.data.get('occupation')
+                    additionalinformation_data = {
+                        'note': request.data.get('note'),
+                    }
+                    passport_files, supporting_documents_files = self.handle_files(request)
+                    # Create related models if the data is provided using serializers
+                    if abnincome_data:
+                        abnincome_data = json.loads(abnincome_data)
+                        abnincome_data['user'] = user.pk
+                        abnincome_serializer = AbnIncomeSerializer(data=abnincome_data)
+                        if abnincome_serializer.is_valid():
+                            abnincome_serializer.save()
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(abnincome_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    if spouse_data:
+                        spouse_data = json.loads(spouse_data)
+                        spouse_data['form_date'] = form_date.pk
+                        spouse_serializer = SpouseSerializer(data=spouse_data)
+                        if spouse_serializer.is_valid():
+                            spouse_serializer.save()
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(spouse_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    if residentialaddress_data:
+                        residentialaddress_data = json.loads(residentialaddress_data)
+                        residentialaddress_data['form_date'] = form_date.pk
+                        residentialaddress_serializer = ResidentialAddressSerializer(data=residentialaddress_data)
+                        if residentialaddress_serializer.is_valid():
+                            residentialaddress_serializer.save()
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(residentialaddress_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    if bankdetails_data:
+                        bankdetails_data = json.loads(bankdetails_data)
+                        bankdetails_data['form_date'] = form_date.pk
+                        bankdetails_serializer = BankDetailsSerializer(data=bankdetails_data)
+                        if bankdetails_serializer.is_valid():
+                            bankdetails_serializer.save()
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(bankdetails_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    if medicareinformation_data:
+                        medicareinformation_data = json.loads(medicareinformation_data)
+                        medicareinformation_data['form_date'] = form_date.pk
+                        medicareinformation_serializer = MedicareInformationSerializer(data=medicareinformation_data)
+                        if medicareinformation_serializer.is_valid():
+                            medicareinformation_serializer.save()
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(medicareinformation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    if occupation_data:
+                        occupation_data = json.loads(occupation_data)
+                        applicableincome_data = occupation_data.pop('applicableincome')
+                        applicableexpenses_data = occupation_data.pop('applicableexpenses')
+                        occupation_data['form_date'] = form_date.pk
+                        occupation_serializer = OccupationSerializer(data=occupation_data)
+                        if occupation_serializer.is_valid():
+                            occupation_instance = occupation_serializer.save()
+                            applicableincome_data['occupation'] = occupation_instance
+                            applicableexpenses_data['occupation'] = occupation_instance
+                            ApplicableIncomeCategories.objects.create(**applicableincome_data)
+                            ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                    additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
+                    additionalinformation_data['form_date'] = form_date.pk
+                    if additional_info_serializer.is_valid():
+                        additional_info_instance = additional_info_serializer.save()
+                        for file in passport_files:
+                            Passport_DrivingLicense.objects.create(
+                                AddFile=additional_info_instance,
+                                passport=file
+                            )
+                        for file in supporting_documents_files:
+                            SupportingDocuents.objects.create(
+                                AddFile=additional_info_instance,
+                                supportingdocuments=file
+                            )
+                    else:
+                        transaction.savepoint_rollback(sid)
+                        return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                user.is_active = True
                 user.save()
+                if user:
+                    email_subject = "Account Registration complete"
+                    if user.role == "user":
+                        template = 'message.html'
+                    elif user.role == "referuser":
+                        template = 'refferuserregisteration.html'
+                    
+                    message = render_to_string(template, {
+                        'name': user.first_name,
+                    })
+                    email_message = EmailMessage(
+                        email_subject,
+                        message,
+                        settings.EMAIL_HOST_USER,
+                        [user.email],
+                    )
+                    email_message.content_subtype = "html"
+                    email_message.fail_silently = False
+                    email_message.send()
+
             else:
+                error_messages = []
+                for field, errors in serializer.errors.items():
+                    for error in errors:
+                        error_messages.append(error)
+                return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
 
-                if encrypted_data:
-                    try:
-                        decrypted_data = self.decrypt_data(encrypted_data)
-                        referrercode, refer_user_id = decrypted_data.split(":")
-                        form_charge = FormCharge.objects.get(fixed=1)
-                        referral_user = ReferralUser.objects.filter(
-                            Q(user_id=refer_user_id) | Q(referrercode=referrercode)
-                        ).first()
-                        if referral_user:
-                            if referral_user.commissiontype:
-                                commission_amt = (referral_user.commission / 100.0) * form_charge.amount
-                            else:
-                                commission_amt = referral_user.commission
-                            ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
-                    except Exception as e:
-                        print(f"Error in decrypting or processing referral data: {e}")
-
-                elif referrercode:
-                    print(referrercode)
-                    try:
-                        referral_user = ReferralUser.objects.get(referrercode=referrercode)
-                        form_charge = FormCharge.objects.get(fixed=1)
-                        if referral_user and form_charge:
-                            if referral_user.commissiontype:
-                                commission_amt = (referral_user.commission / 100.0) * form_charge.amount
-                            else:
-                                commission_amt = referral_user.commission
-                            print("Commision Amount",commission_amt)
-                            ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
-                            if not referral_user.isrequired:
-                                user.payment_status = "paid"
-                                user.save()
-                    except Exception as e :
-                        print(f"Error in decrypting or processing referral data: {e}")
-
-
-                # Extract nested data from the request
-                abnincome_data = request.data.get('abnincome_data')
-                spouse_data = request.data.get('spouse_data')
-                residentialaddress_data = request.data.get('residentialaddress')
-                bankdetails_data = request.data.get('bankdetails')
-                medicareinformation_data = request.data.get('medicareinformation_data')
-                occupation_data = request.data.get('occupation')
-                additionalinformation_data = {
-                    'note': request.data.get('note'),
-                }
-                passport_files, supporting_documents_files = self.handle_files(request)
-                # Create related models if the data is provided using serializers
-                if abnincome_data:
-                    abnincome_data = json.loads(abnincome_data)
-                    abnincome_data['user'] = user.pk
-                    abnincome_serializer = AbnIncomeSerializer(data=abnincome_data)
-                    if abnincome_serializer.is_valid():
-                        abnincome_serializer.save()
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(abnincome_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                if spouse_data:
-                    spouse_data = json.loads(spouse_data)
-                    spouse_data['form_date'] = form_date.pk
-                    spouse_serializer = SpouseSerializer(data=spouse_data)
-                    if spouse_serializer.is_valid():
-                        spouse_serializer.save()
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(spouse_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                if residentialaddress_data:
-                    residentialaddress_data = json.loads(residentialaddress_data)
-                    residentialaddress_data['form_date'] = form_date.pk
-                    residentialaddress_serializer = ResidentialAddressSerializer(data=residentialaddress_data)
-                    if residentialaddress_serializer.is_valid():
-                        residentialaddress_serializer.save()
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(residentialaddress_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                if bankdetails_data:
-                    bankdetails_data = json.loads(bankdetails_data)
-                    bankdetails_data['form_date'] = form_date.pk
-                    bankdetails_serializer = BankDetailsSerializer(data=bankdetails_data)
-                    if bankdetails_serializer.is_valid():
-                        bankdetails_serializer.save()
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(bankdetails_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                if medicareinformation_data:
-                    medicareinformation_data = json.loads(medicareinformation_data)
-                    medicareinformation_data['form_date'] = form_date.pk
-                    medicareinformation_serializer = MedicareInformationSerializer(data=medicareinformation_data)
-                    if medicareinformation_serializer.is_valid():
-                        medicareinformation_serializer.save()
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(medicareinformation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                if occupation_data:
-                    occupation_data = json.loads(occupation_data)
-                    applicableincome_data = occupation_data.pop('applicableincome')
-                    applicableexpenses_data = occupation_data.pop('applicableexpenses')
-                    occupation_data['form_date'] = form_date.pk
-                    occupation_serializer = OccupationSerializer(data=occupation_data)
-                    if occupation_serializer.is_valid():
-                        occupation_instance = occupation_serializer.save()
-                        applicableincome_data['occupation'] = occupation_instance
-                        applicableexpenses_data['occupation'] = occupation_instance
-                        ApplicableIncomeCategories.objects.create(**applicableincome_data)
-                        ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
-                    else:
-                        transaction.savepoint_rollback(sid)
-                        return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-                additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
-                additionalinformation_data['form_date'] = form_date.pk
-                if additional_info_serializer.is_valid():
-                    additional_info_instance = additional_info_serializer.save()
-                    for file in passport_files:
-                        Passport_DrivingLicense.objects.create(
-                            AddFile=additional_info_instance,
-                            passport=file
-                        )
-                    for file in supporting_documents_files:
-                        SupportingDocuents.objects.create(
-                            AddFile=additional_info_instance,
-                            supportingdocuments=file
-                        )
-                else:
-                    transaction.savepoint_rollback(sid)
-                    return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-            user.is_active = True
-            user.save()
-            if user:
-                email_subject = "Account Registration complete"
-                message = render_to_string('message.html', {
-                    'name': user.first_name,
-                            })
-                email_message = EmailMessage(
-                    email_subject,
-                    message,
-                    settings.EMAIL_HOST_USER,
-                    [user.email],
-                )
-                email_message.content_subtype = "html"
-                email_message.fail_silently = False
-                email_message.send()
-        except Exception as e:
-            print(f"Exception occurred during user registration: {e}")  # Log the exception details
+                                 
+        except IntegrityError as e:
             transaction.savepoint_rollback(sid)
+            error_message = self.parse_integrity_error(e)
+            return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            transaction.savepoint_rollback(sid)
+            error_message = self.parse_errors(e.detail)
+            return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            transaction.savepoint_rollback(sid)
+            error_message = self.parse_errors(e.detail)
+            print(f"Exception occurred during user registration: {error_message}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         transaction.savepoint_commit(sid)
@@ -1433,6 +1458,8 @@ class ImportUserDataView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
 
+    date_formats = ['%Y-%m-%d %H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']
+
     def post(self, request, format=None):
         file = request.FILES.get('file')
         if not file:
@@ -1507,9 +1534,9 @@ class ImportUserDataView(APIView):
 
             # Convert birth date to the desired format
             birth_date = row.get('Birth Date', '')
-            if pd.notna(birth_date):
+            if isinstance(birth_date, str) and pd.notna(birth_date):
                 try:
-                    birth_date = datetime.strptime(str(birth_date), '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y')
+                    birth_date = self.parse_birth_date(birth_date)
                 except ValueError:
                     detailed_errors.append(f"Row {index + 1}: Invalid birth date format: {birth_date}")
                     continue
@@ -1542,6 +1569,17 @@ class ImportUserDataView(APIView):
         if detailed_errors:
             error_message = '\n'.join(detailed_errors)
             raise ValueError(f"Errors occurred during import:\n{error_message}")
+
+    def parse_birth_date(self, date_str):
+        for fmt in self.date_formats:
+            try:
+                # Attempt to parse the date string with the current format
+                return datetime.strptime(date_str, fmt).strftime('%d/%m/%Y')
+            except ValueError:
+                # If parsing fails, try the next format
+                pass
+        # If no format matches, raise a ValueError
+        raise ValueError(f"Could not parse birth date: {date_str}")
 
     def import_nested_data(self, formdate, user, row):
         if pd.notna(row.get('ABN')):
@@ -1594,6 +1632,7 @@ class ImportUserDataView(APIView):
                     'date': row.get('Medicare Date')
                 }
             )
+
 
 class UserData(APIView):
     renderer_classes = [UserRenderer]

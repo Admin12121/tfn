@@ -202,7 +202,7 @@ class ReferralUser(models.Model):
 
     def generate_qr_code(self, encrypted_data):
         isreq = self.isrequired
-        url = f"https://tax-eight.vercel.app/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
+        url = f"https://tax.dsaccountant.com.au/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_H
         )
@@ -248,7 +248,8 @@ class ReferralUser(models.Model):
                 'user': self.user,
                 'referrercode': self.referrercode,
                 'referrerurl': self.referrerurl,
-                'commission': self.commission
+                'commission': self.commission,
+                'commissiontype': self.commissiontype,
             }
             message = render_to_string('qrcode.html', context)
             
