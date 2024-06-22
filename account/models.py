@@ -279,7 +279,7 @@ class ReferralUser(models.Model):
             
 class Abn_income(models.Model):
     user = models.OneToOneField('User', related_name='abn_income', on_delete=models.CASCADE)
-    abn = models.IntegerField()
+    abn = models.BigIntegerField()
     natureofworkdone = models.TextField(max_length=2000, null=True, blank=True)
     grossincomereceivedinbank = models.FloatField(null=True, blank=True)
 
