@@ -1632,13 +1632,14 @@ class DeleteMultipleUsers(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, format=None):
+    def post(self, request, format=None):
         if request.user.role != 'admin':
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
         user_ids = request.data.get('user')
+        if not user_ids: 
+            return Response({'error':"User ids must need to provide"})
 
-        # Parse user_ids from JSON string if necessary
         if isinstance(user_ids, str):
             try:
                 user_ids = json.loads(user_ids)
