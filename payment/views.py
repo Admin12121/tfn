@@ -21,7 +21,7 @@ class StripeCheckoutView(APIView):
                 customer_email=user,
                 line_items=[
                     {
-                        'price': 'price_1PQ2HkGixAyqUicL9W28U717',
+                        'price': 'price_1PQ5SqGixAyqUicLTLXb6YHn',
                         'quantity': 1,
                     },
                 ],

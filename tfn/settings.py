@@ -79,24 +79,24 @@ WSGI_APPLICATION = "tfn.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': config('DB_NAME'),
-        'USER': config('DATABASE_USER'),
-        'PASSWORD': config('DATABASE_USER_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': config('DB_NAME'),
+#         'USER': config('DATABASE_USER'),
+#         'PASSWORD': config('DATABASE_USER_PASSWORD'),
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -188,6 +188,10 @@ SIMPLE_JWT = {
 }
 
 
+DATE_INPUT_FORMATS = [
+    '%d/%m/%Y',  # Day/Month/Year
+]
+
 APPEND_SLASH = False
 
 STRIPE_SECRET_KEY=config('STRIPE_SECRET_KEY')
@@ -197,9 +201,9 @@ STRIPE_WEBHOOK_SECRET=config('STRIPE_WEBHOOK_SECRET')
 
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min
 
-# CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = [
-      'https://tax.dsaccountant.com.au',
-      "https://www.tax.dsaccountant.com.au",
- ]
+CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOWED_ORIGINS = [
+#       'https://tax.dsaccountant.com.au',
+#       "https://www.tax.dsaccountant.com.au",
+#  ]
 

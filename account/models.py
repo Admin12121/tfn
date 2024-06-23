@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save,pre_save
 from django.dispatch import receiver
 import threading
 import time
@@ -56,9 +56,9 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser):
     Title = (
-        ('Mr', 'Mr'),
-        ('Mrs', 'Mrs'),
-        ('Ms', 'Ms'),
+        ('Mr.', 'Mr.'),
+        ('Mrs.', 'Mrs.'),
+        ('Ms.', 'Ms.'),
     )
     Gender = (
         ('Male', 'Male'),
@@ -96,9 +96,9 @@ class User(AbstractBaseUser):
     middle_name = models.CharField(max_length=200, null=True, blank=True)
     last_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=15)
-    dateofbirth = models.CharField(max_length=100,null=True, blank=True)
+    dateofbirth = models.CharField(max_length=11,null=True, blank=True) 
     numberofdependents = models.IntegerField(null=True, blank=True)
-    tfn = models.BigIntegerField(null=True, blank=True)
+    tfn = models.BigIntegerField(null=True, unique=True,blank=True)
     password = models.CharField(max_length=200, null=True, blank=True)
     token = models.CharField(max_length=10, null=True, blank=True, default='1234')
     gender = models.CharField(choices=Gender, max_length=30, null=True, blank=True)
@@ -135,6 +135,7 @@ class User(AbstractBaseUser):
     def is_staff(self):
         return self.is_admin
 
+
 def remove_token_after_delay(user_id):
     time.sleep(900)  # Wait for 1 minute
     try:
@@ -160,7 +161,7 @@ class FormCharge(models.Model):
     amount = models.FloatField(null=True, blank=True)
 
 class ReferralUser(models.Model):
-    user = models.OneToOneField('User',related_name='referuser', on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField('User', related_name='referuser', on_delete=models.CASCADE, null=True, blank=True)
     company = models.CharField(max_length=500, null=True, blank=True)
     company_logo = models.ImageField(upload_to='refuser/logo', null=True, blank=True, validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf'])])
     referrercode = models.CharField(max_length=10, null=True, blank=True)
@@ -169,7 +170,6 @@ class ReferralUser(models.Model):
     commission = models.FloatField(null=True, blank=True)
     referrerurl = models.CharField(max_length=500, null=True, blank=True)
     qrcode = models.ImageField(upload_to='refuser/qr', null=True, blank=True, validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf'])])
-    
     
     def save(self, *args, **kwargs):
         is_new_instance = not self.pk
@@ -191,18 +191,22 @@ class ReferralUser(models.Model):
     def generate_referrercode(self):
         import random
         import string
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        random_digits = ''.join(random.choices(string.digits, k=5))
+        referrer_code = f'DS-{random_digits}'
+        return referrer_code
 
     def encrypt_data(self):
         key = b'HgtCZxpXZNNC3jylJuWypAuT8UnkJxUjrDGhezgdpZI='  # Should be 32 bytes
         f = Fernet(key)
         data = f"{self.referrercode}:{self.user.id}"
         token = f.encrypt(data.encode())
+        print(f"Encrypted data: {token}")  # Debugging statement
         return token
 
     def generate_qr_code(self, encrypted_data):
         isreq = self.isrequired
         url = f"https://tax.dsaccountant.com.au/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
+        print(f"Generated URL: {url}")  # Debugging statement
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_H
         )
@@ -219,7 +223,7 @@ class ReferralUser(models.Model):
                 logo = logo.convert('RGBA')
 
             # Resize logo
-            logo.thumbnail((img.size[0] // 3, img.size[1] // 3), Image.LANCZOS)
+            logo.thumbnail((img.size[0] // 5, img.size[1] // 5), Image.LANCZOS)
             logo_position = (
                 (img.size[0] - logo.size[0]) // 2,
                 (img.size[1] - logo.size[1]) // 2
@@ -276,7 +280,7 @@ class ReferralUser(models.Model):
 
             email.fail_silently = False
             email.send()
-            
+
 class Abn_income(models.Model):
     user = models.OneToOneField('User', related_name='abn_income', on_delete=models.CASCADE)
     abn = models.BigIntegerField()

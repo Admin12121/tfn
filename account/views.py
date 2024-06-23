@@ -840,7 +840,8 @@ class AllUsersView(APIView):
                 Q(first_name__icontains=name_param) |
                 Q(middle_name__icontains=name_param) |
                 Q(last_name__icontains=name_param) |
-                Q(phone__icontains=name_param)
+                Q(phone__icontains=name_param) |
+                Q(tfn__icontains = name_param)
             )
 
         if paymentstatus_param:
@@ -1458,36 +1459,28 @@ class ImportUserDataView(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
 
-    date_formats = ['%Y-%m-%d %H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']
-
     def post(self, request, format=None):
         file = request.FILES.get('file')
         if not file:
             return JsonResponse({'error': 'No file provided'}, status=400)
 
-        # Compute the hash of the uploaded file
         file_hash = self.compute_file_hash(file)
 
-        # Check if the file was already uploaded
         if ImportedFile.objects.filter(file_hash=file_hash).exists():
             return JsonResponse({'error': 'This file has already been uploaded'}, status=400)
 
-        # Save the file
         fs = FileSystemStorage()
         filename = fs.save(file.name, file)
         file_path = fs.path(filename)
 
-        # Check for existing users in the uploaded file
         try:
             self.check_for_existing_users(file_path, file.name)
         except ValueError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
-        # Import data
         try:
             with transaction.atomic():
                 self.import_data(file_path, file.name)
-                # Save the file hash to the database
                 ImportedFile.objects.create(file_name=file.name, file_hash=file_hash)
                 return JsonResponse({'success': 'Data imported successfully'})
         except Exception as e:
@@ -1500,29 +1493,17 @@ class ImportUserDataView(APIView):
         return hash_md5.hexdigest()
 
     def check_for_existing_users(self, file_path, file_name):
-        if file_name.endswith('.xlsx'):
-            df = pd.read_excel(file_path)
-        elif file_name.endswith('.csv'):
-            df = pd.read_csv(file_path)
-        else:
-            raise ValueError('Unsupported file format')
-
+        df = pd.read_excel(file_path) if file_name.endswith('.xlsx') else pd.read_csv(file_path)
         existing_emails = User.objects.filter(email__in=df['Email']).values_list('email', flat=True)
         if existing_emails:
             raise ValueError(f"The following users already exist: {', '.join(existing_emails)}")
 
     def import_data(self, file_path, file_name):
-        if file_name.endswith('.xlsx'):
-            df = pd.read_excel(file_path)
-        elif file_name.endswith('.csv'):
-            df = pd.read_csv(file_path)
-        else:
-            raise ValueError('Unsupported file format')
-
+        df = pd.read_excel(file_path) if file_name.endswith('.xlsx') else pd.read_csv(file_path)
         required_fields = [
             'Email', 'First Name', 'Last Name', 'Residential Address Line 1', 
             'Residential Address State', 'EFT Account Name', 'EFT BSB Number', 
-            'EFT Account Number', 'Year'
+            'EFT Account Number', 'Year', 'Birth Date'
         ]
         detailed_errors = []
 
@@ -1532,22 +1513,27 @@ class ImportUserDataView(APIView):
                 detailed_errors.append(f"Row {index + 1}: Missing required fields: {', '.join(missing_fields)}")
                 continue
 
-            # Convert birth date to the desired format
-            birth_date = row.get('Birth Date', '')
-            if isinstance(birth_date, str) and pd.notna(birth_date):
-                try:
-                    birth_date = self.parse_birth_date(birth_date)
-                except ValueError:
-                    detailed_errors.append(f"Row {index + 1}: Invalid birth date format: {birth_date}")
-                    continue
+            birth_date = row['Birth Date']
+            if isinstance(birth_date, str):
+                birth_date = datetime.strptime(birth_date, '%d/%m/%Y').date()
+            elif isinstance(birth_date, datetime):
+                birth_date = birth_date.date()
+            else:
+                birth_date = None
 
+            if birth_date is not None:
+                birth_date = birth_date.strftime('%d/%m/%Y')
+
+            middle_name = row.get('Middle Name', '')
+            middle_name = '' if pd.isna(middle_name) else middle_name
+            phone = self.clean_phone_number(row.get('Phone', ''))
             user_data = {
                 'email': row.get('Email'),
                 'title': row.get('Title', ''),
                 'first_name': row.get('First Name'),
-                'middle_name': row.get('Middle Name', ''),
+                'middle_name': middle_name,
                 'last_name': row.get('Last Name'),
-                'phone': row.get('Phone', ''),
+                'phone': phone,
                 'dateofbirth': birth_date,
                 'numberofdependents': row.get('Number of Dependents', 0),
                 'tfn': row.get('TFN', ''),
@@ -1558,7 +1544,9 @@ class ImportUserDataView(APIView):
             }
 
             try:
+                print(f"User data after saving: {user_data}")   
                 user = User.objects.create(**user_data)
+                print(f"User data after saving: {user}")
                 formdate, _ = FormDate.objects.get_or_create(user=user, year=row.get('Year'))
                 self.import_nested_data(formdate, user, row)
             except IntegrityError as e:
@@ -1570,16 +1558,12 @@ class ImportUserDataView(APIView):
             error_message = '\n'.join(detailed_errors)
             raise ValueError(f"Errors occurred during import:\n{error_message}")
 
-    def parse_birth_date(self, date_str):
-        for fmt in self.date_formats:
-            try:
-                # Attempt to parse the date string with the current format
-                return datetime.strptime(date_str, fmt).strftime('%d/%m/%Y')
-            except ValueError:
-                # If parsing fails, try the next format
-                pass
-        # If no format matches, raise a ValueError
-        raise ValueError(f"Could not parse birth date: {date_str}")
+    def clean_phone_number(self, phone):
+        phone = str(phone)
+        if phone.startswith('61'):
+            return phone[2:]
+        return phone
+
 
     def import_nested_data(self, formdate, user, row):
         if pd.notna(row.get('ABN')):
@@ -1603,12 +1587,15 @@ class ImportUserDataView(APIView):
                     'dob': row.get('Spouse DOB', '')
                 }
             )
-
+        residential_addresh = row.get('Residential Address Line 2', '')
+        residential_addresh = '' if pd.isna(residential_addresh) else residential_addresh
+        residential_location = row.get('Residential Address Location', '')
+        residential_location = '' if pd.isna(residential_location) else residential_location
         Residential_addresh.objects.update_or_create(
             form_date=formdate,
             defaults={
                 'res_address1': row.get('Residential Address Line 1'),
-                'res_address2': row.get('Residential Address Line 2', ''),
+                'res_address2': residential_addresh,
                 'res_addresslocation': row.get('Residential Address Location', ''),
                 'res_addresspostcode': row.get('Residential Address Postcode', ''),
                 'res_addreshstate': row.get('Residential Address State')
@@ -1632,8 +1619,7 @@ class ImportUserDataView(APIView):
                     'date': row.get('Medicare Date')
                 }
             )
-
-
+            
 class UserData(APIView):
     renderer_classes = [UserRenderer]
     
@@ -1641,7 +1627,52 @@ class UserData(APIView):
         users = User.objects.all()  # Ensure correct indentation
         serializer = UserMakaSerializer(users, many=True)  # Specify many=True
         return Response(serializer.data, status=status.HTTP_200_OK)
-           
+
+class DeleteMultipleUsers(APIView):
+    renderer_classes = [UserRenderer]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, format=None):
+        if request.user.role != 'admin':
+            return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+        user_ids = request.data.get('user')
+
+        # Parse user_ids from JSON string if necessary
+        if isinstance(user_ids, str):
+            try:
+                user_ids = json.loads(user_ids)
+            except json.JSONDecodeError:
+                return Response({'detail': 'User IDs format is invalid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convert user_ids elements to integers if they are strings
+        try:
+            user_ids = [int(uid) for uid in user_ids]
+        except ValueError:
+            return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure user_ids is a list of integers
+        if not isinstance(user_ids, list) or not all(isinstance(uid, int) for uid in user_ids):
+            return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                # Fetch the User instances
+                users = User.objects.filter(id__in=user_ids)
+                if not users.exists():
+                    return Response({'detail': 'No matching users found.'}, status=status.HTTP_404_NOT_FOUND)
+
+                for user in users:
+                    if FormDate.objects.filter(user=user).exists():
+                        user.delete()
+                    else:
+                        return Response({'detail': f'Cannot delete user {user.id}. No FormDate data exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            return Response({'detail': 'Users deleted successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(str(e))
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 def custom_admin_login(request):
     if request.method == 'POST':
         email = "admin@gmail.com"
