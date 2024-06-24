@@ -196,16 +196,12 @@ class ReferralUser(models.Model):
         return referrer_code
 
     def encrypt_data(self):
-        key = b'HgtCZxpXZNNC3jylJuWypAuT8UnkJxUjrDGhezgdpZI='  # Should be 32 bytes
-        f = Fernet(key)
         data = f"{self.referrercode}:{self.user.id}"
-        token = f.encrypt(data.encode())
-        print(f"Encrypted data: {token}")  # Debugging statement
-        return token
+        return data
 
     def generate_qr_code(self, encrypted_data):
         isreq = self.isrequired
-        url = f"https://tax.dsaccountant.com.au/register/?refer={encrypted_data.decode()}&isrequired={isreq}"
+        url = f"https://tax.dsaccountant.com.au/register/?refer={encrypted_data}&isrequired={isreq}"
         print(f"Generated URL: {url}")  # Debugging statement
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_H
@@ -255,7 +251,7 @@ class ReferralUser(models.Model):
                 'commission': self.commission,
                 'commissiontype': self.commissiontype,
             }
-            message = render_to_string('qrcode.html', context)
+            message = render_to_string('qr_updating.html', context)
             
             email = EmailMultiAlternatives(
                 subject,

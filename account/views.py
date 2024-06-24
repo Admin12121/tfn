@@ -32,6 +32,7 @@ from django.core.files.storage import FileSystemStorage
 import hashlib
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils.dateparse import parse_date
 
 def current_year():
     return datetime.now().year
@@ -303,7 +304,7 @@ class UserRegistrationView(APIView):
 
                     if encrypted_data:
                         try:
-                            decrypted_data = self.decrypt_data(encrypted_data)
+                            decrypted_data = encrypted_data
                             referrercode, refer_user_id = decrypted_data.split(":")
                             form_charge = FormCharge.objects.get(fixed=1)
                             referral_user = ReferralUser.objects.filter(
@@ -411,9 +412,9 @@ class UserRegistrationView(APIView):
                             applicableexpenses_data['occupation'] = occupation_instance
                             ApplicableIncomeCategories.objects.create(**applicableincome_data)
                             ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
-                        else:
-                            transaction.savepoint_rollback(sid)
-                            return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                        # else:
+                        #     transaction.savepoint_rollback(sid)
+                        #     return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
                     additionalinformation_data['form_date'] = form_date.pk
@@ -568,7 +569,7 @@ class AddDocumentView(APIView):
                 try:
                     latest_form_date = FormDate.objects.filter(user=user).exclude(id=form_date.pk).latest('year')
                     latest_additional_info = Additionalinformationandsupportingdocuments.objects.get(form_date=latest_form_date)
-                    passport_files = Passport_DrivingLicense.objects.filter(AddFile=latest_additional_info)
+                    passport_files = Passport_DrivingLicense.objects.filter(AddFile=latest_additional_info).values_list('passport', flat=True)
                 except ObjectDoesNotExist:
                     passport_files = []
 
@@ -619,8 +620,8 @@ class AddDocumentView(APIView):
                     occupation_instance = occupation_serializer.save()
                     ApplicableIncomeCategories.objects.create(occupation=occupation_instance, **applicableincome_data)
                     ApplicableExpensesCategories.objects.create(occupation=occupation_instance, **applicableexpenses_data)
-                else:
-                    return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                # else:
+                #     return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             additionalinformation_data['form_date'] = form_date.pk
             additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
@@ -628,11 +629,17 @@ class AddDocumentView(APIView):
                 additional_info_instance = additional_info_serializer.save()
 
                 # Use existing passport_files if not provided
-                if not request.FILES.getlist('passport_drivinglicense'):
+                if request.FILES.getlist('passport_drivinglicense'):
+                    for file in passport_files:
+                        Passport_DrivingLicense.objects.create(
+                            AddFile=additional_info_instance,
+                            passport=file  # Use the file object directly
+                        )
+                else:
                     for passport_file in passport_files:
                         Passport_DrivingLicense.objects.create(
                             AddFile=additional_info_instance,
-                            passport=passport_file.passport  # Assuming the field is called 'passport'
+                            passport=passport_file  # Use the stored file path
                         )
                 
                 # Save supporting documents only if provided
@@ -648,7 +655,7 @@ class AddDocumentView(APIView):
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
+                
 class UserActivationView(APIView):
     def post(self, request, format=None):
         try:
@@ -820,6 +827,26 @@ class AllUsersView(APIView):
         status_param = request.query_params.get('status')
         id_param = request.query_params.get('id')
         year_param = request.query_params.get('year')
+        from_param = request.query_params.get('from')
+        to_param = request.query_params.get('to')
+        from_param = request.query_params.get('from')
+        to_param = request.query_params.get('to')
+
+        # Parse the 'from' date
+        if from_param:
+            try:
+                from_date = datetime.strptime(from_param, '%d/%m/%Y').date()
+                users = users.filter(created_at__gte=from_date)
+            except ValueError:
+                return Response({'detail': 'Invalid from date format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parse the 'to' date
+        if to_param:
+            try:
+                to_date = datetime.strptime(to_param, '%d/%m/%Y').date()
+                users = users.filter(created_at__lte=to_date)
+            except ValueError:
+                return Response({'detail': 'Invalid to date format.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if id_param:
             try:
@@ -952,6 +979,14 @@ class AllUsersView(APIView):
                 print(request.data)
                 try:
                     if not year_param:
+                        if 'abnincome' in request.data and request.data['abnincome'] == 'false':
+                            user.abn = False
+                            user.save()
+                            try:
+                                abn_income = user.abn_income
+                                abn_income.delete()
+                            except Abn_income.DoesNotExist:
+                                pass
                         serializer = UserUpdateSerializer(user, data=request.data, partial=True)
                         if serializer.is_valid(raise_exception=True):
                             serializer.save()
@@ -1108,15 +1143,15 @@ class AllUsersView(APIView):
         if user_param:
             try:
                 user = User.objects.get(id=user_param)
-                if request.user.role != 'admin':
-                    return Response({'error': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
-
-                # Check if there are any FormDate instances associated with the user
-                if FormDate.objects.filter(user=user).exists():
+                if request.user.role == 'user':
+                    if FormDate.objects.filter(user=user).exists():
+                        user.delete()
+                        return Response({'message': 'User deleted successfully.'}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'error': 'Cannot delete user. No FormDate data exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
+                else:  # This is the admin case
                     user.delete()
                     return Response({'message': 'User deleted successfully.'}, status=status.HTTP_200_OK)
-                else:
-                    return Response({'error': 'Cannot delete user. No FormDate data exists for the user.'}, status=status.HTTP_400_BAD_REQUEST)
 
             except User.DoesNotExist:
                 return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)

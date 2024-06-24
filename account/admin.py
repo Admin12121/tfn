@@ -80,7 +80,7 @@ class UserModelAdmin(BaseUserAdmin):
     list_filter = ('is_admin',)
     fieldsets = (
         ('User Credentials', {'fields': ('email', 'tfn', 'token', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth', 'numberofdependents', 'gender', 'abn', 'spouse', 'referercode', 'created_at', 'last_login')}),
+        ('Personal info', {'fields': ('first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth', 'numberofdependents', 'gender', 'abn', 'spouse','remark', 'referercode', 'created_at', 'last_login')}),
         ('Permissions', {'fields': ('is_export', 'payment_status', 'role', 'is_active', 'is_admin',)}),
     )
     add_fieldsets = (

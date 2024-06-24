@@ -6,6 +6,7 @@ from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeErr
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
+from urllib.parse import urlencode
 from .utils import Util
 from .models import *
 from decouple import config
@@ -361,8 +362,12 @@ class SendUserPasswordResetEmailSerializer(serializers.Serializer):
             user = User.objects.get(email = email)
             uid = urlsafe_base64_encode(force_bytes(user.id))
             token = PasswordResetTokenGenerator().make_token(user)
+            params = {
+                'token': token
+            }
+            encoded_params = urlencode(params)
             # link = 'https://whale-app-oh7bu.ondigitalocean.app/api/user/reset/'+uid+'/'+token
-            link = f'{config("DOMAIN")}/reset/{uid}/{token}'
+            link = f'{config("DOMAIN")}reset-password/{uid}/?{encoded_params}'
             body = 'Click Following Link to Reset Your Password ' + link
             data = {
                 'subject':'Reset Your Password',
@@ -400,8 +405,13 @@ class UserPasswordResetSerializer(serializers.Serializer):
 
 
 class UserMakaSerializer(serializers.ModelSerializer):
-
+    # formdata = serializers.SerializerMethodField()
     class Meta:
         model = User
         fields = ['id']
 
+
+    # def get_formdata(self, obj):
+    #     request = self.context.get('request')
+    #     form_dates = FormDate.objects.filter(user=obj)  # Ensure this is the correct related field
+    #     return FormDateSerializer(form_dates, many=True, context={'request': request}).data

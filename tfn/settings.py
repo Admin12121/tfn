@@ -79,24 +79,24 @@ WSGI_APPLICATION = "tfn.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': config('DB_NAME'),
-        'USER': config('DATABASE_USER'),
-        'PASSWORD': config('DATABASE_USER_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': config('DB_NAME'),
+#         'USER': config('DATABASE_USER'),
+#         'PASSWORD': config('DATABASE_USER_PASSWORD'),
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -126,7 +126,8 @@ AUTHENTICATION_BACKENDS = (
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = 'Australia/Sydney'
+# TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -167,8 +168,8 @@ AUTH_USER_MODEL = 'account.User'
 
 # JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=90),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=10),
     'ROTATE_REFRESH_TOKENS' : True,
     'BLACKLIST_AFTER_ROTATION' : False,
     'UPDATE_LAST_LOGIN' : False,
@@ -188,10 +189,6 @@ SIMPLE_JWT = {
 }
 
 
-DATE_INPUT_FORMATS = [
-    '%d/%m/%Y',  # Day/Month/Year
-]
-
 APPEND_SLASH = False
 
 STRIPE_SECRET_KEY=config('STRIPE_SECRET_KEY')
@@ -201,9 +198,9 @@ STRIPE_WEBHOOK_SECRET=config('STRIPE_WEBHOOK_SECRET')
 
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min
 
-# CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = [
-      'https://tax.dsaccountant.com.au',
-      "https://www.tax.dsaccountant.com.au",
- ]
+CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOWED_ORIGINS = [
+#       'https://tax.dsaccountant.com.au',
+#       "https://www.tax.dsaccountant.com.au",
+#  ]
 
