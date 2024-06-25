@@ -271,14 +271,13 @@ class UserRegistrationView(APIView):
         return passport_files, supporting_documents_files
     @transaction.atomic
     def post(self, request, format=None):
-        print(request.data)
         sid = transaction.savepoint()
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
             referraluser_param = request.query_params.get('referraluser', None)
             serializer = UserRegistrationSerializer(data=request.data)
-            # serializer.is_valid(raise_exception=True)
+
             if serializer.is_valid():
                 token = None
 
@@ -291,11 +290,11 @@ class UserRegistrationView(APIView):
 
                 if referraluser_param and 'company' in request.data:
                     company = request.data['company']
-                    company_logo = request.data.get('company_logo')  # Use .get() to safely retrieve the value
-                    if company_logo:  # Check if company_logo is not empty (assuming None or empty string are considered empty)
+                    company_logo = request.data.get('company_logo') 
+                    if company_logo: 
                         ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
                     else:
-                        ReferralUser.objects.create(user=user, company=company)  # Create without company_logo
+                        ReferralUser.objects.create(user=user, company=company)
                     user.role = "referuser"
                     user.is_active = False
                     user.save()
@@ -320,7 +319,6 @@ class UserRegistrationView(APIView):
                             print(f"Error in decrypting or processing referral data: {e}")
 
                     elif referrercode:
-                        print(referrercode)
                         try:
                             referral_user = ReferralUser.objects.get(referrercode=referrercode)
                             form_charge = FormCharge.objects.get(fixed=1)
@@ -329,14 +327,13 @@ class UserRegistrationView(APIView):
                                     commission_amt = (referral_user.commission / 100.0) * form_charge.amount
                                 else:
                                     commission_amt = referral_user.commission
-                                print("Commision Amount",commission_amt)
+                                # print("Commision Amount",commission_amt)
                                 ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
                                 if not referral_user.isrequired:
                                     user.payment_status = "paid"
                                     user.save()
                         except Exception as e :
                             print(f"Error in decrypting or processing referral data: {e}")
-
 
                     # Extract nested data from the request
                     abnincome_data = request.data.get('abnincome_data')
@@ -349,7 +346,6 @@ class UserRegistrationView(APIView):
                         'note': request.data.get('note'),
                     }
                     passport_files, supporting_documents_files = self.handle_files(request)
-                    # Create related models if the data is provided using serializers
                     if abnincome_data:
                         abnincome_data = json.loads(abnincome_data)
                         abnincome_data['user'] = user.pk
@@ -412,9 +408,9 @@ class UserRegistrationView(APIView):
                             applicableexpenses_data['occupation'] = occupation_instance
                             ApplicableIncomeCategories.objects.create(**applicableincome_data)
                             ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
-                        # else:
-                        #     transaction.savepoint_rollback(sid)
-                        #     return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                        else :
+                            transaction.savepoint_rollback(sid)
+                            return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
                     additionalinformation_data['form_date'] = form_date.pk
@@ -468,7 +464,7 @@ class UserRegistrationView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         transaction.savepoint_commit(sid)
-        return Response({'message': 'Registration Successful, Check your Email to Verify Your Account'}, status=status.HTTP_201_CREATED)
+        return Response({'message': 'Registration Successful'}, status=status.HTTP_201_CREATED)
 
 class AddDocumentView(APIView):
     renderer_classes = [UserRenderer]
@@ -486,7 +482,7 @@ class AddDocumentView(APIView):
 
     @transaction.atomic
     def post(self, request, format=None):
-        print(request.data)
+        # print(request.data)
         user_id = request.query_params.get('id')
         date = request.data.get('date')
         user = get_object_or_404(User, pk=user_id)
@@ -545,7 +541,7 @@ class AddDocumentView(APIView):
                         'eftaccountnumber': latest_bank_details.eftaccountnumber,
                         'form_date': form_date.pk
                     }
-                    print(bankdetails_data)
+                    # print(bankdetails_data)
                 except ObjectDoesNotExist:
                     bankdetails_data = {
                         'form_date': form_date.pk
@@ -965,7 +961,7 @@ class AllUsersView(APIView):
                 return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             if request.user.role in ['admin','user'] and user.role == 'user':
-                print(request.data)
+                # print(request.data)
                 try:
                     if not year_param:
                         if 'abnincome' in request.data and request.data['abnincome'] == 'false':
@@ -1002,14 +998,14 @@ class AllUsersView(APIView):
                                         abnincome_serializer.save()
 
                             if spouse_data:
-                                print("done")
+                                # print("done")
                                 spouse_data = json.loads(spouse_data)
                                 spouse_id = spouse_data.get('id')
                                 year = spouse_data.get('year')
                                 form_date = FormDate.objects.get(user=user, year=year)
 
                                 if spouse_id:
-                                    print("done again")
+                                    # print("done again")
                                     try:
                                         spouse = Spouse.objects.get(id=spouse_id)
                                         spouse_serializer = SpouseSerializer(spouse, data=spouse_data, partial=True)
@@ -1018,7 +1014,7 @@ class AllUsersView(APIView):
                                     except Spouse.DoesNotExist:
                                         return Response({'detail': 'Spouse not found.'}, status=status.HTTP_404_NOT_FOUND)
                                 else:
-                                    print("done dome again")
+                                    # print("done dome again")
                                     spouse_data['form_date'] = form_date.pk
                                     spouse_serializer = SpouseSerializer(data=spouse_data)
                                     if spouse_serializer.is_valid(raise_exception=True):
@@ -1173,7 +1169,7 @@ class ClientuserStatusUpdates(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, format=None):
-        print(request.data)
+        # print(request.data)
 
         if request.user.role not in ['admin', 'staff']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
@@ -1226,7 +1222,6 @@ class ClientuserStatusUpdates(APIView):
 
             return Response({'detail': 'Users updated successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -1344,7 +1339,6 @@ class RefDataStatusUpdates(APIView):
 
             return Response({'detail': 'Users updated and settlements created successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class ReferalSettlementListView(APIView):
@@ -1383,7 +1377,6 @@ class FormChargeView(APIView):
         data_param = FormCharge.objects.get(fixed=1)
         serializer = FormChargeSerializer(data_param , data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
-            print(serializer)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({'detail': 'Invalid role or request data'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1424,7 +1417,6 @@ class DataExported(APIView):
                 users.update(is_export=True)
             return Response({'detail': 'Data Exported successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class SendUserPasswordResetEmailView(APIView):
@@ -1568,9 +1560,9 @@ class ImportUserDataView(APIView):
             }
 
             try:
-                print(f"User data after saving: {user_data}")   
+                # print(f"User data after saving: {user_data}")   
                 user = User.objects.create(**user_data)
-                print(f"User data after saving: {user}")
+                # print(f"User data after saving: {user}")
                 formdate, _ = FormDate.objects.get_or_create(user=user, year=row.get('Year'))
                 self.import_nested_data(formdate, user, row)
             except IntegrityError as e:
@@ -1695,7 +1687,7 @@ class DeleteMultipleUsers(APIView):
                 
             return Response({'detail': 'Users deleted successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
-            print(str(e))
+            # print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # def custom_admin_login(request):
