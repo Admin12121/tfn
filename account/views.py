@@ -272,8 +272,7 @@ class UserRegistrationView(APIView):
         return passport_files, supporting_documents_files
     @transaction.atomic
     def post(self, request, format=None):
-        logger.info("Received registration request with data: %s", request.data)
-        sid = transaction.savepoint()
+        print(request.data)
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
@@ -355,7 +354,7 @@ class UserRegistrationView(APIView):
                         if abnincome_serializer.is_valid():
                             abnincome_serializer.save()
                         else:
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
                             return Response(abnincome_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if spouse_data:
@@ -365,7 +364,7 @@ class UserRegistrationView(APIView):
                         if spouse_serializer.is_valid():
                             spouse_serializer.save()
                         else:
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
                             return Response(spouse_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if residentialaddress_data:
@@ -375,7 +374,7 @@ class UserRegistrationView(APIView):
                         if residentialaddress_serializer.is_valid():
                             residentialaddress_serializer.save()
                         else:
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
                             return Response(residentialaddress_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if bankdetails_data:
@@ -385,7 +384,7 @@ class UserRegistrationView(APIView):
                         if bankdetails_serializer.is_valid():
                             bankdetails_serializer.save()
                         else:
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
                             return Response(bankdetails_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if medicareinformation_data:
@@ -395,10 +394,11 @@ class UserRegistrationView(APIView):
                         if medicareinformation_serializer.is_valid():
                             medicareinformation_serializer.save()
                         else:
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
                             return Response(medicareinformation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if occupation_data:
+                        print(occupation_data)
                         occupation_data = json.loads(occupation_data)
                         applicableincome_data = occupation_data.pop('applicableincome')
                         applicableexpenses_data = occupation_data.pop('applicableexpenses')
@@ -411,7 +411,8 @@ class UserRegistrationView(APIView):
                             ApplicableIncomeCategories.objects.create(**applicableincome_data)
                             ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
                         else :
-                            transaction.savepoint_rollback(sid)
+                            transaction.set_rollback(True)
+                            print(occupation_serializer.errors)
                             return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
@@ -429,7 +430,7 @@ class UserRegistrationView(APIView):
                                 supportingdocuments=file
                             )
                     else:
-                        transaction.savepoint_rollback(sid)
+                        transaction.set_rollback(True)
                         return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                 user.is_active = True
@@ -463,14 +464,13 @@ class UserRegistrationView(APIView):
                 return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
 
         except IntegrityError as e:
-            transaction.savepoint_rollback(sid)
+            transaction.set_rollback(True)
             return Response({'error': 'IntegrityError occurred. Transaction rolled back.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            transaction.savepoint_rollback(sid)
+            transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        transaction.savepoint_commit(sid)
+        transaction.set_rollback(True)
         return Response({'message': 'Registration Successful'}, status=status.HTTP_201_CREATED)
 
 class AddDocumentView(APIView):
@@ -1697,17 +1697,3 @@ class DeleteMultipleUsers(APIView):
             # print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-# def custom_admin_login(request):
-#     if request.method == 'POST':
-#         email = "admin@gmail.com"
-#         password = "admin"
-#         print(email, password)
-#         user = User.objects.get(email=email)
-#         print(user)
-#         if user is not None:
-#             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-#             return redirect('/admin')
-#         else:
-#             messages.error(request, 'Invalid email or token')
-
-#     return render(request, 'admin/login.html')
