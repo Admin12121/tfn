@@ -463,19 +463,8 @@ class UserRegistrationView(APIView):
                         error_messages.append(error)
                 return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
 
-                                 
-        except IntegrityError as e:
-            transaction.savepoint_rollback(sid)
-            error_message = self.parse_integrity_error(e)
-            return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
-        except ValidationError as e:
-            transaction.savepoint_rollback(sid)
-            error_message = self.parse_errors(e.detail)
-            return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             transaction.savepoint_rollback(sid)
-            error_message = self.parse_errors(e.detail)
-            print(f"Exception occurred during user registration: {error_message}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         transaction.savepoint_commit(sid)
