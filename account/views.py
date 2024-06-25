@@ -251,16 +251,7 @@ class AdminRegistrationView(APIView):
         
 class UserRegistrationView(APIView):
     renderer_classes = [UserRenderer]
-    def decrypt_data(self, encrypted_data):
-        key = b'HgtCZxpXZNNC3jylJuWypAuT8UnkJxUjrDGhezgdpZI='
-        f = Fernet(key)
-        try:
-            decoded_data = unquote(encrypted_data)
-            decrypted_data = f.decrypt(encrypted_data.encode())
-            return decrypted_data.decode()
-        except InvalidToken:
-            raise ValueError("Invalid encryption token")
-    
+
     def handle_files(self, request):
         passport_files = []
         supporting_documents_files = []
@@ -272,7 +263,6 @@ class UserRegistrationView(APIView):
         return passport_files, supporting_documents_files
     @transaction.atomic
     def post(self, request, format=None):
-        print(request.data)
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
@@ -291,17 +281,16 @@ class UserRegistrationView(APIView):
 
                 if referraluser_param and 'company' in request.data:
                     company = request.data['company']
-                    company_logo = request.data.get('company_logo') 
-                    if company_logo: 
+                    company_logo = request.data.get('company_logo')
+                    if company_logo:
                         ReferralUser.objects.create(user=user, company=company, company_logo=company_logo)
                     else:
                         ReferralUser.objects.create(user=user, company=company)
                     user.role = "referuser"
                     user.is_active = False
                     user.save()
-                    
+
                 else:
-                    logger.info("Processing referral code: %s", referrercode)
                     if encrypted_data:
                         try:
                             decrypted_data = encrypted_data
@@ -328,12 +317,11 @@ class UserRegistrationView(APIView):
                                     commission_amt = (referral_user.commission / 100.0) * form_charge.amount
                                 else:
                                     commission_amt = referral_user.commission
-                                # print("Commision Amount",commission_amt)
                                 ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
                                 if not referral_user.isrequired:
                                     user.payment_status = "paid"
                                     user.save()
-                        except Exception as e :
+                        except Exception as e:
                             print(f"Error in decrypting or processing referral data: {e}")
 
                     # Extract nested data from the request
@@ -398,7 +386,6 @@ class UserRegistrationView(APIView):
                             return Response(medicareinformation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     if occupation_data:
-                        print(occupation_data)
                         occupation_data = json.loads(occupation_data)
                         applicableincome_data = occupation_data.pop('applicableincome')
                         applicableexpenses_data = occupation_data.pop('applicableexpenses')
@@ -410,9 +397,9 @@ class UserRegistrationView(APIView):
                             applicableexpenses_data['occupation'] = occupation_instance
                             ApplicableIncomeCategories.objects.create(**applicableincome_data)
                             ApplicableExpensesCategories.objects.create(**applicableexpenses_data)
-                        else :
+                        else:
                             transaction.set_rollback(True)
-                            print(occupation_serializer.errors)
+                            # print(occupation_serializer.errors)
                             return Response(occupation_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                     additional_info_serializer = AdditionalInformationAndDocumentsSerializer(data=additionalinformation_data)
@@ -441,7 +428,7 @@ class UserRegistrationView(APIView):
                         template = 'message.html'
                     elif user.role == "referuser":
                         template = 'refferuserregisteration.html'
-                    
+
                     message = render_to_string(template, {
                         'name': user.first_name,
                     })
@@ -454,6 +441,8 @@ class UserRegistrationView(APIView):
                     email_message.content_subtype = "html"
                     email_message.fail_silently = False
                     email_message.send()
+
+                return Response({'message': 'Registration Successful'}, status=status.HTTP_201_CREATED)
 
             else:
                 error_messages = []
@@ -470,8 +459,6 @@ class UserRegistrationView(APIView):
         except Exception as e:
             transaction.set_rollback(True)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        transaction.set_rollback(True)
-        return Response({'message': 'Registration Successful'}, status=status.HTTP_201_CREATED)
 
 class AddDocumentView(APIView):
     renderer_classes = [UserRenderer]
@@ -1548,10 +1535,12 @@ class ImportUserDataView(APIView):
 
             middle_name = row.get('Middle Name', '')
             middle_name = '' if pd.isna(middle_name) else middle_name
+            title = row.get('Title', '')
+            title = '' if pd.isna(title) else title
             phone = self.clean_phone_number(row.get('Phone', ''))
             user_data = {
                 'email': row.get('Email'),
-                'title': row.get('Title', ''),
+                'title': title,
                 'first_name': row.get('First Name'),
                 'middle_name': middle_name,
                 'last_name': row.get('Last Name'),
@@ -1566,9 +1555,7 @@ class ImportUserDataView(APIView):
             }
 
             try:
-                # print(f"User data after saving: {user_data}")   
                 user = User.objects.create(**user_data)
-                # print(f"User data after saving: {user}")
                 formdate, _ = FormDate.objects.get_or_create(user=user, year=row.get('Year'))
                 self.import_nested_data(formdate, user, row)
             except IntegrityError as e:
@@ -1585,7 +1572,6 @@ class ImportUserDataView(APIView):
         if phone.startswith('61'):
             return phone[2:]
         return phone
-
 
     def import_nested_data(self, formdate, user, row):
         if pd.notna(row.get('ABN')):
