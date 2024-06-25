@@ -36,7 +36,7 @@ class StripeCheckoutView(APIView):
                 customer_email=user_email,
                 line_items=[
                     {
-                        'price': 'price_1PQ5SqGixAyqUicLTLXb6YHn',
+                        'price': 'price_1PUjTTGixAyqUicLNUMooAOv',
                         'quantity': qty,
                     },
                 ],
@@ -82,7 +82,7 @@ class AuthStripeCheckoutView(APIView):
                 customer_email=user.email,
                 line_items=[
                     {
-                        'price': 'price_1PQ2HkGixAyqUicL9W28U717',
+                        'price': 'price_1PUjS3GixAyqUicLvF835GcX',
                         'quantity': qty,
                     },
                 ],
