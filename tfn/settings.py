@@ -198,9 +198,9 @@ STRIPE_WEBHOOK_SECRET=config('STRIPE_WEBHOOK_SECRET')
 
 PASSWORD_RESET_TIMEOUT=300          # 300 Sec = 5 Min
 
-CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ALLOWED_ORIGINS = [
-#       'https://tax.dsaccountant.com.au',
-#       "https://www.tax.dsaccountant.com.au",
-#  ]
+# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+      'https://tax.dsaccountant.com.au',
+      "https://www.tax.dsaccountant.com.au",
+ ]
 

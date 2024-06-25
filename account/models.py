@@ -12,7 +12,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.core.mail import send_mail, EmailMessage
 from django.core.files.base import ContentFile
-from PIL import Image
 from io import BytesIO
 import requests
 from cryptography.fernet import Fernet
@@ -20,6 +19,27 @@ import qrcode
 from tfn import settings
 import datetime
 from email.mime.image import MIMEImage
+from PIL import Image, ImageDraw, ImageFont
+
+def generate_image_with_qr(base_image_url, qr_image_path, commission):
+    response = requests.get(base_image_url)
+    base_image = Image.open(BytesIO(response.content))
+
+    qr_image = Image.open(qr_image_path)
+
+    if qr_image.mode != 'RGBA':
+        qr_image = qr_image.convert('RGBA')
+
+    qr_image = qr_image.resize((180, 180), Image.Resampling.LANCZOS)
+    base_width, base_height = base_image.size
+    qr_position = (30, base_height - 300) 
+    base_image.paste(qr_image, qr_position, qr_image)
+
+    buffer = BytesIO()
+    base_image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer.getvalue()
+
 
 def current_year():
     return datetime.date.today().year
@@ -251,6 +271,10 @@ class ReferralUser(models.Model):
                 'commission': self.commission,
                 'commissiontype': self.commissiontype,
             }
+            base_image_url = "https://kantipurinfotech.com/wp-content/uploads/2024/06/WhatsApp-Image-2024-06-24-at-5.10.05-PM.jpeg"
+            poster_image_content = generate_image_with_qr(base_image_url, self.qrcode.path, self.commission)
+
+
             message = render_to_string('qr_updating.html', context)
             
             email = EmailMultiAlternatives(
@@ -273,6 +297,12 @@ class ReferralUser(models.Model):
             image.add_header('Content-ID', '<qr_code_image>')
             image.add_header('Content-Disposition', 'inline', filename=self.qrcode.name)
             email.attach(image)
+
+            # Attach and embed the dynamic poster
+            poster_image_mime = MIMEImage(poster_image_content)
+            poster_image_mime.add_header('Content-ID', '<poster_image>')
+            poster_image_mime.add_header('Content-Disposition', 'inline', filename='poster_with_qr.png')
+            email.attach(poster_image_mime)
 
             email.fail_silently = False
             email.send()
@@ -383,11 +413,11 @@ class Additionalinformationandsupportingdocuments(models.Model):
 
 class Passport_DrivingLicense(models.Model):
     AddFile = models.ForeignKey(Additionalinformationandsupportingdocuments, on_delete=models.CASCADE, related_name='passportdrivinglicense', null=True, blank=True)
-    passport = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf'])] ) 
+    passport = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf', 'docs'])] ) 
 
 class SupportingDocuents(models.Model):
     AddFile = models.ForeignKey(Additionalinformationandsupportingdocuments, on_delete=models.CASCADE, related_name='supportingdocuments', null=True, blank=True)
-    supportingdocuments = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf'])] ) 
+    supportingdocuments = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf', 'docs'])] ) 
 
 class ReferalData(models.Model):
     Medicare_CHOICES = (
