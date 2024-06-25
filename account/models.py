@@ -402,7 +402,7 @@ class ApplicableExpensesCategories(models.Model):
     income_protection_insurance_amt = models.FloatField(null=True, blank=True)
     personal_contribution_to_super = models.BooleanField(default=False)
     personal_contribution_to_super_amt = models.FloatField(null=True, blank=True)
-    professional_membership_union_fee = models.BooleanField(default=False)
+    professional_membership_union_fee = models.BooleanField(default=False),
     professional_membership_union_fee_amt = models.FloatField(null=True, blank=True)
     other_expenses_not_specified_above = models.BooleanField(default=False)
     other_expenses_not_specified_above_amt = models.FloatField(null=True, blank=True)
@@ -417,7 +417,7 @@ class Passport_DrivingLicense(models.Model):
 
 class SupportingDocuents(models.Model):
     AddFile = models.ForeignKey(Additionalinformationandsupportingdocuments, on_delete=models.CASCADE, related_name='supportingdocuments', null=True, blank=True)
-    supportingdocuments = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf', 'docs'])] ) 
+    supportingdocuments = models.ImageField(upload_to='user/documents', null=True, blank=True,validators=[ FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf', 'docs', 'csv', 'xlsx'])] ) 
 
 class ReferalData(models.Model):
     Medicare_CHOICES = (
