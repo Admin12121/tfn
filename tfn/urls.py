@@ -7,8 +7,8 @@ from payment.views import StripeWebhookView as webhook
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/login/', account_views.custom_admin_login, name='custom_admin_login'),
-    path('admin/', admin.site.urls),
+    # path('admin/login/', account_views.custom_admin_login, name='custom_admin_login'),
+    path('dsaccountantadmin/', admin.site.urls),
     path('user/',include('account.urls')),
     path('',include('payment.urls')),
     path('webhook/', webhook.as_view(), name='stripe-webhook'),

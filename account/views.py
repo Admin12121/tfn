@@ -1698,17 +1698,17 @@ class DeleteMultipleUsers(APIView):
             print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-def custom_admin_login(request):
-    if request.method == 'POST':
-        email = "admin@gmail.com"
-        password = "admin"
-        print(email, password)
-        user = User.objects.get(email=email)
-        print(user)
-        if user is not None:
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            return redirect('/admin')
-        else:
-            messages.error(request, 'Invalid email or token')
+# def custom_admin_login(request):
+#     if request.method == 'POST':
+#         email = "admin@gmail.com"
+#         password = "admin"
+#         print(email, password)
+#         user = User.objects.get(email=email)
+#         print(user)
+#         if user is not None:
+#             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+#             return redirect('/admin')
+#         else:
+#             messages.error(request, 'Invalid email or token')
 
-    return render(request, 'admin/login.html')
+#     return render(request, 'admin/login.html')
