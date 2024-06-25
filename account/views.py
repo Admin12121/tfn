@@ -1,4 +1,5 @@
 import re
+import logging
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
@@ -47,7 +48,7 @@ def get_tokens_for_user(user):
   
 from rest_framework.pagination import PageNumberPagination
 
-
+logger = logging.getLogger(__name__)
 
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -271,6 +272,7 @@ class UserRegistrationView(APIView):
         return passport_files, supporting_documents_files
     @transaction.atomic
     def post(self, request, format=None):
+        logger.info("Received registration request with data: %s", request.data)
         sid = transaction.savepoint()
         try:
             encrypted_data = request.data.get('referral_code')
@@ -300,7 +302,7 @@ class UserRegistrationView(APIView):
                     user.save()
                     
                 else:
-
+                    logger.info("Processing referral code: %s", referrercode)
                     if encrypted_data:
                         try:
                             decrypted_data = encrypted_data
@@ -457,7 +459,12 @@ class UserRegistrationView(APIView):
                 for field, errors in serializer.errors.items():
                     for error in errors:
                         error_messages.append(error)
+                logger.error("Validation errors: %s", error_messages)
                 return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
+
+        except IntegrityError as e:
+            transaction.savepoint_rollback(sid)
+            return Response({'error': 'IntegrityError occurred. Transaction rolled back.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             transaction.savepoint_rollback(sid)
