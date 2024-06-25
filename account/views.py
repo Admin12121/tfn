@@ -312,9 +312,9 @@ class UserRegistrationView(APIView):
                             ).first()
                             if referral_user:
                                 if referral_user.commissiontype:
-                                    commission_amt = (referral_user.commission / 100.0) * form_charge.amount
-                                else:
                                     commission_amt = referral_user.commission
+                                else:
+                                    commission_amt = (referral_user.commission / 100.0) * form_charge.amount
                                 ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
                         except Exception as e:
                             print(f"Error in decrypting or processing referral data: {e}")
@@ -797,7 +797,6 @@ class AllUsersView(APIView):
     pagination_class = CustomPageNumberPagination
 
     def get(self, request, format=None):
-
         user = request.user
         if user.role == "user":
             # Mimic redirection to UserProfileView
@@ -1697,3 +1696,56 @@ class DeleteMultipleUsers(APIView):
             # print(str(e))
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class RefStatusUpdate(APIView):
+        renderer_classes = [UserRenderer]
+        permission_classes = [IsAuthenticated]
+        
+        def post(self, request, format=None):
+                if request.user.role != 'admin':
+                    return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+
+                user_ids = request.data.get('user')
+                refuser = request.data.get('refuser')
+
+                referral_user = ReferralUser.objects.get(id=refuser)
+
+                form_charge = FormCharge.objects.get(fixed=1)
+                if not user_ids: 
+                    return Response({'error':"User ids must need to provide"})
+                
+                if isinstance(user_ids, str):
+                    try:
+                        user_ids = json.loads(user_ids)
+                    except json.JSONDecodeError:
+                        return Response({'detail': 'User IDs format is invalid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Convert user_ids elements to integers if they are strings
+                try:
+                    user_ids = [int(uid) for uid in user_ids]
+                except ValueError:
+                    return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Ensure user_ids is a list of integers
+                if not isinstance(user_ids, list) or not all(isinstance(uid, int) for uid in user_ids):
+                    return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    with transaction.atomic():
+                        # Fetch the User instances
+                        users = User.objects.filter(id__in=user_ids)
+                        if not users.exists():
+                            return Response({'detail': 'No matching users found.'}, status=status.HTTP_404_NOT_FOUND)
+
+                        for user in users:
+                            if referral_user and form_charge:
+                                if referral_user.commissiontype:
+                                    commission_amt = referral_user.commission
+                                else:
+                                    commission_amt = (referral_user.commission / 100.0) * form_charge.amount
+                                ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
+
+                    return Response({'detail': 'Referral User Assigned Successfully'}, status=status.HTTP_200_OK)
+                except Exception as e:
+                    # print(str(e))
+                    return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

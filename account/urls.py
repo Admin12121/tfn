@@ -22,6 +22,7 @@ urlpatterns = [
     path('firstatusupdates/', RefDataStatusUpdates.as_view(), name='firstatusupdates'),
     path('settledstatement/', ReferalSettlementListView.as_view(), name='settledstatement'),
     path('alluser/', AllUsersView.as_view(), name='alluser'),
+    path('refstatusudate/', RefStatusUpdate.as_view(), name='refstatusudate'),
     path('deleteusers/', DeleteMultipleUsers.as_view(), name='deleteuser'),
     path('formdata/', FormChargeView.as_view(), name='formdata'),
     path('changepassword/', UserChangePasswordView.as_view(), name='changepassword'),

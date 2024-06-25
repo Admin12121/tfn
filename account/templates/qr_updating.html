@@ -114,7 +114,7 @@
                 trust in our services mean a lot to us.</p>
             <p style="font-size: 1.1rem; line-height: 1.8; margin-inline: auto; color: #333333;">As a token of our
                 appreciation, we are pleased to offer you an exclusive benefit. Share the QR code below
-                with your friends, family, or colleagues. When they use it to sign up for our services, you will receive <strong>{% if commissiontype %}${% endif %} {{ commission }} {% if not commissiontype %}%{% endif %} commission</strong> on every tax return.</p>
+                with your friends, family, or colleagues. When they use it to sign up for our services, you will receive <strong>{% if not commissiontype %}${% endif %} {{ commission }} {% if  commissiontype %}%{% endif %} commission</strong> on every tax return.</p>
             <div style="text-align: center; margin: 20px 0;">
                 <p style="font-size: 1.75rem; font-weight: 300;">Your Referral QR Code:</p>
                 <img src="cid:qr_code_image" alt="Referral QR Code" width="200px" height="200px"

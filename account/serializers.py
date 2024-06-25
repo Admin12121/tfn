@@ -411,7 +411,3 @@ class UserMakaSerializer(serializers.ModelSerializer):
         fields = ['id']
 
 
-    # def get_formdata(self, obj):
-    #     request = self.context.get('request')
-    #     form_dates = FormDate.objects.filter(user=obj)  # Ensure this is the correct related field
-    #     return FormDateSerializer(form_dates, many=True, context={'request': request}).data

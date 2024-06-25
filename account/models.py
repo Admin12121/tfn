@@ -21,7 +21,7 @@ import datetime
 from email.mime.image import MIMEImage
 from PIL import Image, ImageDraw, ImageFont
 
-def generate_image_with_qr(base_image_url, qr_image_path, commission):
+def generate_image_with_qr(base_image_url, qr_image_path, referrercode):
     response = requests.get(base_image_url)
     base_image = Image.open(BytesIO(response.content))
 
@@ -34,6 +34,11 @@ def generate_image_with_qr(base_image_url, qr_image_path, commission):
     base_width, base_height = base_image.size
     qr_position = (30, base_height - 300) 
     base_image.paste(qr_image, qr_position, qr_image)
+
+    draw = ImageDraw.Draw(base_image)
+    font = ImageFont.truetype("arial.ttf", 30)  # Choose an appropriate font and size
+    text_position = (30, base_height - 100)  # Adjusted position
+    draw.text(text_position, f"REFERRER CODE : {referrercode}", font=font, fill="white")
 
     buffer = BytesIO()
     base_image.save(buffer, format="PNG")
@@ -271,8 +276,8 @@ class ReferralUser(models.Model):
                 'commission': self.commission,
                 'commissiontype': self.commissiontype,
             }
-            base_image_url = "https://kantipurinfotech.com/wp-content/uploads/2024/06/WhatsApp-Image-2024-06-24-at-5.10.05-PM.jpeg"
-            poster_image_content = generate_image_with_qr(base_image_url, self.qrcode.path, self.commission)
+            base_image_url = "https://kantipurinfotech.com/wp-content/uploads/2024/06/WhatsApp-Image-2024-06-24-at-6.39.14-PM.jpeg"
+            poster_image_content = generate_image_with_qr(base_image_url, self.qrcode.path, self.referrercode)
 
 
             message = render_to_string('qr_updating.html', context)
