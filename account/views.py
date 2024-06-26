@@ -433,21 +433,24 @@ class UserRegistrationView(APIView):
                     email_subject = "Account Registration complete"
                     if user.role == "user":
                         template = 'message.html'
+                        message = render_to_string(template, {
+                            'name': user.first_name,
+                            'content' : request.data,
+                            'abnincome_data': abnincome_data,
+                            'spouse_data': spouse_data,
+                            'residentialaddress': residentialaddress_data,
+                            'bankdetails': bankdetails_data,
+                            'medicareinformation': medicareinformation_data,
+                            'occupation': occupation_data,
+                            'applicableincome': applicableincome_data,
+                            'applicableexpenses' : applicableexpenses_data
+                        })
                     elif user.role == "referuser":
                         template = 'refferuserregisteration.html'
+                        message = render_to_string(template, {
+                            'name': user.first_name,
+                        })
 
-                    message = render_to_string(template, {
-                        'name': user.first_name,
-                        'content' : request.data,
-                        'abnincome_data': abnincome_data,
-                        'spouse_data': spouse_data,
-                        'residentialaddress': residentialaddress_data,
-                        'bankdetails': bankdetails_data,
-                        'medicareinformation': medicareinformation_data,
-                        'occupation': occupation_data,
-                        'applicableincome': applicableincome_data,
-                        'applicableexpenses' : applicableexpenses_data
-                    })
                     email_message = EmailMessage(
                         email_subject,
                         message,
