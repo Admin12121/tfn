@@ -245,7 +245,7 @@ class AdminandStaffUserDataSerializer(serializers.ModelSerializer):
 class RefUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'middle_name', 'last_name', 'phone']
+        fields = ['first_name', 'middle_name', 'last_name', 'email', 'phone']
 
 class ReferralUserRequiredSerializer(serializers.ModelSerializer):
     user=RefUserSerializer(read_only=True)
@@ -299,11 +299,17 @@ class ReferalSettlementSerializer(serializers.ModelSerializer):
         return users_data
 
 
+class FormYearsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormDate
+        fields = ['year']
+
 class UserDataSerializer(serializers.ModelSerializer):
     referral_data = ReferralUserSerializer(source='referercode', read_only=True, many=True)
     refuserstatus = RefUserStatusUpdatesSerializer(source='referral_data', many=True, read_only=True)
     formdata = serializers.SerializerMethodField()
     abn_income = AbnIncomeSerializer(read_only=True)
+    year = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -311,7 +317,7 @@ class UserDataSerializer(serializers.ModelSerializer):
             'id', 'email', 'title', 'first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth',
             'numberofdependents', 'gender', 'tfn', 'abn', 'abn_income', 'spouse', 'medicareinformation', 'is_export',
             'is_active', 'role', 'status', 'payment_status', 'created_at', 'updated_at', 'last_login',
-            'referral_data', 'formdata', 'refuserstatus'
+            'referral_data', 'formdata', 'refuserstatus', 'year'
         ]
 
     def get_formdata(self, obj):
@@ -329,6 +335,10 @@ class UserDataSerializer(serializers.ModelSerializer):
 
         form_dates_data = FormDateSerializer(form_dates, many=True, context={'request': request}).data
         return form_dates_data[0] if form_dates_data and not id_param else form_dates_data
+
+    def get_year(self, obj):
+        form_dates = obj.formdata.all()
+        return [form_date.year for form_date in form_dates]
 
 class UserChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)

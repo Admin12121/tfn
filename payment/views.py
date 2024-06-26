@@ -27,7 +27,7 @@ class StripeCheckoutView(APIView):
         if user.remark:
             print(f"Raw user remark: {user.remark}")
             years = filter_valid_years([year.strip() for year in user.remark.split(',')])
-            qty = len(years) - 1 if years else 1
+            qty = len(years) if years else 1
         else:
             qty = 1 
 
@@ -70,12 +70,9 @@ class AuthStripeCheckoutView(APIView):
         if user.remark:
             print(f"Raw user remark: {user.remark}")
             years = filter_valid_years([year.strip() for year in user.remark.split(',')])
-            
-            qty = len(years) - 1 if years else 1
+            qty = len(years) if years else 1
         else:
             qty = 1 
-
-        print(f"Final quantity: {qty}, User remark: {user.remark}")
 
         try:
             checkout_session = stripe.checkout.Session.create(

@@ -1,233 +1,704 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSS Reset -->
+    <style>
+      html,
+      body {
+        margin: 0 auto !important;
+        padding: 0 !important;
+        height: 100% !important;
+        width: 100% !important;
+      }
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- CSS Reset -->
-  <style>
-    html,
-    body {
-      margin: 0 auto !important;
-      padding: 0 !important;
-      height: 100% !important;
-      width: 100% !important;
-    }
+      * {
+        -ms-text-size-adjust: 100%;
+        -webkit-text-size-adjust: 100%;
+      }
 
-    * {
-      -ms-text-size-adjust: 100%;
-      -webkit-text-size-adjust: 100%;
-    }
+      div[style*="margin: 16px 0"] {
+        margin: 0 !important;
+      }
 
-    div[style*="margin: 16px 0"] {
-      margin: 0 !important;
-    }
+      table,
+      td {
+        mso-table-lspace: 0pt !important;
+        mso-table-rspace: 0pt !important;
+      }
 
-    table,
-    td {
-      mso-table-lspace: 0pt !important;
-      mso-table-rspace: 0pt !important;
-    }
+      table {
+        border-spacing: 0 !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+        margin: 0 auto !important;
+      }
 
-    table {
-      border-spacing: 0 !important;
-      border-collapse: collapse !important;
-      table-layout: fixed !important;
-      margin: 0 auto !important;
-    }
+      table table table {
+        table-layout: auto;
+      }
 
-    table table table {
-      table-layout: auto;
-    }
+      img {
+        -ms-interpolation-mode: bicubic;
+      }
 
-    img {
-      -ms-interpolation-mode: bicubic;
-    }
-
-    *[x-apple-data-detectors],
+      *[x-apple-data-detectors],
     /* iOS */
     .x-gmail-data-detectors,
     /* Gmail */
     .x-gmail-data-detectors *,
     .aBn {
-      border-bottom: 0 !important;
-      cursor: default !important;
-      color: inherit !important;
-      text-decoration: none !important;
-      font-size: inherit !important;
-      font-family: inherit !important;
-      font-weight: inherit !important;
-      line-height: inherit !important;
-    }
-
-    .a6S {
-      display: none !important;
-      opacity: 0.01 !important;
-    }
-
-    img.g-img+div {
-      display: none !important;
-    }
-
-    .button-link {
-      text-decoration: none !important;
-    }
-
-    @media only screen and (min-device-width: 375px) and (max-device-width: 413px) {
-
-      /* iPhone 6 and 6+ */
-      .email-container {
-        min-width: 375px !important;
+        border-bottom: 0 !important;
+        cursor: default !important;
+        color: inherit !important;
+        text-decoration: none !important;
+        font-size: inherit !important;
+        font-family: inherit !important;
+        font-weight: inherit !important;
+        line-height: inherit !important;
       }
-    }
-  </style>
-  <!-- End of CSS Reset -->
-</head>
 
-<body
-  style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
-  <div style="min-width: 600px; max-width: 600px; margin: 20px auto; background-color: #EDF9FF;">
-    <header>
-      <table cellspacing="0" cellpadding="0" border="0" role="presentation" width="150" style="table-layout: fixed;"
-        align="center">
-        <tbody>
+      .a6S {
+        display: none !important;
+        opacity: 0.01 !important;
+      }
+
+      img.g-img + div {
+        display: none !important;
+      }
+
+      .button-link {
+        text-decoration: none !important;
+      }
+
+      @media only screen and (min-device-width: 375px) and (max-device-width: 413px) {
+        /* iPhone 6 and 6+ */
+        .email-container {
+          min-width: 375px !important;
+        }
+      }
+      .email-container {
+        width: 100%;
+        max-width: 550px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        .table {
+          width: 100%;
+          border-collapse: collapse;
+          th,
+          td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+          }
+          th {
+            background-color: #f4f4f4;
+          }
+          .heading {
+            text-align: center;
+            margin-bottom: 20px;
+          }
+        }
+      }
+    </style>
+    <!-- End of CSS Reset -->
+  </head>
+
+  <body
+    style="
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+        Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue',
+        sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    "
+  >
+    <div
+      style="
+        min-width: 600px;
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #edf9ff;
+      "
+    >
+      <header>
+        <table
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          role="presentation"
+          width="150"
+          style="table-layout: fixed"
+          align="center"
+        >
+          <tbody>
+            <tr>
+              <td
+                style="
+                  font-size: 0px;
+                  line-height: 0px;
+                  padding-bottom: 5px;
+                  padding-top: 25px;
+                "
+              >
+                <img
+                  src="https://img.mailinblue.com/7295344/images/content_library/original/65e430d4ab745dcbbd0ba812.png"
+                  width="150"
+                  border="0"
+                  style="display: block; width: 100%"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </header>
+      <div style="padding: 20px">
+        <h2 style="color: #0099cc">
+          Confirmation of Tax Return Form Submission
+        </h2>
+        <p style="font-size: 2rem; font-weight: 600">Hi {{ name }}</p>
+        <!-- <p style="color: #f7941d; font-size: 1.1rem;"><strong>Dear [Client's Name],</strong></p> -->
+        <p style="color: #333333; font-size: 1.1rem; line-height: 1.8">
+          I hope this message finds you well.
+        </p>
+        <p style="color: #333333; font-size: 1.1rem; line-height: 1.8">
+          We are writing to confirm the successful submission of your Tax Return
+          Form through our website. Your form has been received and is currently
+          being processed.
+        </p>
+        <p style="color: #333333; font-size: 1.1rem; line-height: 1.8">
+          If you have any questions, do not hesitate to contact us at
+          <a href="mailto:info@dsaccountant.com.au">info@dsaccountant.com.au</a
+          >.
+        </p>
+        <p style="color: #333333; font-size: 1.1rem; line-height: 1.8">
+          Thank you for choosing DS Accountant and Advisors for your tax needs.
+          We appreciate your prompt submission and will keep you informed of any
+          further updates regarding your tax return.
+        </p>
+        <p
+          style="
+            color: #f7941d;
+            font-size: 1.75rem;
+            line-height: 0.9;
+            font-weight: 600;
+          "
+        >
+          Best regards,
+        </p>
+        <p style="font-size: 1.1rem; line-height: 1.8; color: #333333">
+          DS Accountants and Advisors Team
+        </p>
+      </div>
+      <div class="email-container">
+        <h3 class="heading" >Your Submitted Information</h3>
+        <table class="table" style="padding:2.1rem">
           <tr>
-            <td style="font-size: 0px; line-height: 0px; padding-bottom: 5px; padding-top: 25px;">
-              <img src="https://img.mailinblue.com/7295344/images/content_library/original/65e430d4ab745dcbbd0ba812.png"
-                width="150" border="0" style="display: block; width: 100%;">
-            </td>
+            <th colspan="2">Personal Details</th>
+        </tr>
+          <tr>
+              <td>Title</td>
+              <td>{{ content.title }}</td>
           </tr>
-        </tbody>
+          <tr>
+              <td>First Name</td>
+              <td>{{ content.first_name }}</td>
+          </tr>
+          <tr>
+              <td>Middle Name</td>
+              <td>{{ content.middle_name }}</td>
+          </tr>
+          <tr>
+              <td>Last Name</td>
+              <td>{{ content.last_name }}</td>
+          </tr>
+          <tr>
+              <td>Gender</td>
+              <td>{{ content.gender }}</td>
+          </tr>
+          <tr>
+              <td>Phone</td>
+              <td>{{ content.phone }}</td>
+          </tr>
+          <tr>
+              <td>Email</td>
+              <td>{{ content.email }}</td>
+          </tr>
+          <tr>
+              <td>Date of Birth</td>
+              <td>{{ content.dateofbirth }}</td>
+          </tr>
+          <tr>
+              <td>Number of Dependents</td>
+              <td>{{ content.numberofdependents }}</td>
+          </tr>
+          <tr>
+              <td>TFN</td>
+              <td>{{ content.tfn }}</td>
+          </tr>
+          <tr>
+              <td>Remark</td>
+              <td>{{ content.remark }}</td>
+          </tr>
+          <tr>
+              <td>Note</td>
+              <td>{{ content.note }}</td>
+          </tr>
+          {% if spouse_data %}
+          <tr>
+              <th colspan="2">Spouse's Information</th>
+          </tr>
+          <tr>
+              <td>Spouse's First Name</td>
+              <td>{{ spouse_data.first_name }}</td>
+          </tr>
+          <tr>
+              <td>Spouse's Middle Name</td>
+              <td>{{ spouse_data.middle_name }}</td>
+          </tr>
+          <tr>
+              <td>Spouse's Last Name</td>
+              <td>{{ spouse_data.last_name }}</td>
+          </tr>
+          <tr>
+              <td>Spouse's Taxable Income</td>
+              <td>{{ spouse_data.spouse_taxable_income }}</td>
+          </tr>
+          <tr>
+              <td>Spouse's Date of Birth</td>
+              <td>{{ spouse_data.dob }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+              <th colspan="2">Residential Address</th>
+          </tr>
+          <tr>
+              <td>Res Address1</td>
+              <td>{{ residentialaddress.res_address1 }}</td>
+          </tr>
+          <tr>
+              <td>Res Address2</td>
+              <td>{{ residentialaddress.res_address2 }}</td>
+          </tr>
+          <tr>
+              <td>Res Address Location</td>
+              <td>{{ residentialaddress.res_addresslocation }}</td>
+          </tr>
+          <tr>
+              <td>Res Address Postcode</td>
+              <td>{{ residentialaddress.res_addresspostcode }}</td>
+          </tr>
+          <tr>
+              <td>Res Address State</td>
+              <td>{{ residentialaddress.res_addreshstate }}</td>
+          </tr>
+      
+          {% if medicareinformation %}
+          <tr>
+              <th colspan="2">Medicare Information</th>
+          </tr>
+          <tr>
+              <td>Medicare Type</td>
+              <td>{{ medicareinformation.medicaretype }}</td>
+          </tr>
+          <tr>
+              <td>Date</td>
+              <td>{{ medicareinformation.date }}</td>
+          </tr>
+          {% endif %}
+      
+          <tr>
+              <th colspan="2">Bank Details</th>
+          </tr>
+          <tr>
+              <td>Account Name</td>
+              <td>{{ bankdetails.etaaccountname }}</td>
+          </tr>
+          <tr>
+              <td>BSB Number</td>
+              <td>{{ bankdetails.eftbsbnumber }}</td>
+          </tr>
+          <tr>
+              <td>Account Number</td>
+              <td>{{ bankdetails.eftaccountnumber }}</td>
+          </tr>
+          <tr>
+              <th colspan="2">Occupation</th>
+          </tr>
+          <tr>
+              <td>Occupation</td>
+              <td>{{ occupation.occupation }}</td>
+          </tr>
+          <tr>
+              <th colspan="2">Applicable Income</th>
+          </tr>
+          <tr>
+              <td>Salary Wages Amount</td>
+              <td>{{ applicableincome.salary_wages_amt }}</td>
+          </tr>
+          <tr>
+              <td>Pandemic Leave Disaster Payment Amount</td>
+              <td>{{ applicableincome.pandemic_leave_disaster_payment_amt }}</td>
+          </tr>
+          <tr>
+              <td>Dividends Amount</td>
+              <td>{{ applicableincome.dividends_amt }}</td>
+          </tr>
+          <tr>
+              <td>Employment Share Scheme Amount</td>
+              <td>{{ applicableincome.employment_share_scheme_amt }}</td>
+          </tr>
+          <tr>
+              <td>Trust Partnership Distribution Amount</td>
+              <td>{{ applicableincome.trust_partnership_distribution_amt }}</td>
+          </tr>
+          <tr>
+              <td>Income from Business Amount</td>
+              <td>{{ applicableincome.income_from_business_amt }}</td>
+          </tr>
+          <tr>
+              <td>Capital Gain Loss Amount</td>
+              <td>{{ applicableincome.capital_gain_loss_amt }}</td>
+          </tr>
+          <tr>
+              <td>Rental Income Amount</td>
+              <td>{{ applicableincome.rental_income_amt }}</td>
+          </tr>
+          <tr>
+              <td>Foreign Income Amount</td>
+              <td>{{ applicableincome.foreign_income_amt }}</td>
+          </tr>
+          <tr>
+              <td>Investment in Share Crypto CFD Forex Trading Amount</td>
+              <td>{{ applicableincome.investment_in_share_crypto_cfd_forex_trading_amt }}</td>
+          </tr>
+          <tr>
+              <td>Other Income Not Specified Above Amount</td>
+              <td>{{ applicableincome.other_income_not_specified_above_amt }}</td>
+          </tr>
+          <tr>
+              <th colspan="2">Applicable Expenses</th>
+          </tr>
+          <tr>
+              <td>Work Related Car Expenses Amount</td>
+              <td>{{ applicableexpenses.work_related_car_expenses_amt }}</td>
+          </tr>
+          <tr>
+              <td>Work Related Travel Expenses Amount</td>
+              <td>{{ applicableexpenses.work_related_travel_expenses_amt }}</td>
+          </tr>
+          <tr>
+              <td>Work Related Clothing Laundry Dry Cleaning Amount</td>
+              <td>{{ applicableexpenses.work_related_clothing_laundry_dry_cleaning_amt }}</td>
+          </tr>
+          <tr>
+              <td>Work Related Self Education Expenses Amount</td>
+              <td>{{ applicableexpenses.work_related_self_education_expenses_amt }}</td>
+          </tr>
+          <tr>
+              <td>Gift Donation Amount</td>
+              <td>{{ applicableexpenses.gift_donation_amt }}</td>
+          </tr>
+          <tr>
+              <td>Tax Agents Fee Amount</td>
+              <td>{{ applicableexpenses.tax_agents_fee_amt }}</td>
+          </tr>
+          <tr>
+              <td>Income Protection Insurance Amount</td>
+              <td>{{ applicableexpenses.income_protection_insurance_amt }}</td>
+          </tr>
+          <tr>
+              <td>Personal Contribution to Super Amount</td>
+              <td>{{ applicableexpenses.personal_contribution_to_super_amt }}</td>
+          </tr>
+          <tr>
+              <td>Professional Membership Union Fee Amount</td>
+              <td>{{ applicableexpenses.professional_membership_union_fee_amt }}</td>
+          </tr>
+          <tr>
+              <td>Other Expenses Not Specified Above Amount</td>
+              <td>{{ applicableexpenses.other_expenses_not_specified_above_amt }}</td>
+          </tr>
+      
+          {% if abnincome_data %}
+          <tr>
+              <th colspan="2">ABN Income Details</th>
+          </tr>
+          <tr>
+              <td>ABN</td>
+              <td>{{ abnincome_data.abn }}</td>
+          </tr>
+          <tr>
+              <td>Nature of Work Done</td>
+              <td>{{ abnincome_data.natureofworkdone }}</td>
+          </tr>
+          <tr>
+              <td>Gross Income Received in Bank</td>
+              <td>{{ abnincome_data.grossincomereceivedinbank }}</td>
+          </tr>
+          {% endif %}
       </table>
-    </header>
-    <div style="padding: 20px;">
-      <h2 style="color: #0099cc;">Confirmation of Tax Return Form Submission</h2>
-      <p style="font-size: 2rem; font-weight: 600;">Hi  {{ name }}</p>
-      <!-- <p style="color: #f7941d; font-size: 1.1rem;"><strong>Dear [Client's Name],</strong></p> -->
-      <p style="color: #333333; font-size: 1.1rem; line-height: 1.8;">I hope this message finds you well.</p>
-      <p style="color: #333333; font-size: 1.1rem; line-height: 1.8;">
-        We are writing to confirm the successful submission of your Tax Return
-        Form through our website. Your form has been received and is currently
-        being processed.
-      </p>
-      <p style="color: #333333; font-size: 1.1rem; line-height: 1.8;">
-        If you have any questions, do not hesitate to contact us at
-        <a href="mailto:info@dsaccountant.com.au">info@dsaccountant.com.au</a>.
-      </p>
-      <p style="color: #333333; font-size: 1.1rem; line-height: 1.8;">
-        Thank you for choosing DS Accountant and Advisors for your tax needs.
-        We appreciate your prompt submission and will keep you informed of any
-        further updates regarding your tax return.
-      </p>
-      <p style="color: #f7941d; font-size: 1.75rem; line-height: 0.9; font-weight: 600;">Best regards,</p>
-      <p style="font-size: 1.1rem; line-height: 1.8; color: #333333;">
-        DS Accountants and Advisors Team
-      </p>
+      
+      <p>Please find your Attachment Files</p>
+      </div>
+      <footer style="background-color: #f7951d1a; padding: 10px">
+        <table
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          role="presentation"
+          align="center"
+          style="table-layout: fixed; width: 570px"
+        >
+          <tbody>
+            <tr width="100%">
+              <td
+                colspan="2"
+                valign="middle"
+                style="
+                  padding-top: 15px;
+                  border: 0;
+                  line-height: 125%;
+                  text-align: center;
+                  font-size: 11px;
+                  font-family: Arial, Helvetica, sans-serif;
+                  font-weight: 300;
+                  color: #adadad;
+                "
+                align="center"
+              >
+                <p style="color: #adadad">
+                  For support requests, please contact us at
+                  <a href="mailto:info@dsaccountant.com.au"
+                    >info@dsaccountant.com.au</a
+                  >
+                  <br />
+                  &copy; 2024 DS Accountants and Advisors. All rights reserved.
+                </p>
+              </td>
+            </tr>
+            <tr width="570">
+              <td valign="top">
+                <table
+                  width="100%"
+                  cellspacing="0"
+                  cellpadding="0"
+                  border="0"
+                  role="presentation"
+                >
+                  <tbody>
+                    <tr>
+                      <td align="center" style="display: inline-block">
+                        <table
+                          cellspacing="0"
+                          cellpadding="0"
+                          border="0"
+                          role="presentation"
+                          width="570"
+                          align="center"
+                          style="table-layout: fixed; width: 570px"
+                        >
+                          <tbody>
+                            <tr>
+                              <td
+                                style="
+                                  padding-bottom: 15px;
+                                  padding-left: 229px;
+                                  padding-right: 229px;
+                                  padding-top: 15px;
+                                "
+                              >
+                                <table
+                                  width="100%"
+                                  cellspacing="0"
+                                  cellpadding="0"
+                                  border="0"
+                                  role="presentation"
+                                >
+                                  <tbody>
+                                    <tr>
+                                      <th
+                                        width="40"
+                                        style="font-weight: normal"
+                                      >
+                                        <table
+                                          cellspacing="0"
+                                          cellpadding="0"
+                                          border="0"
+                                          role="presentation"
+                                          width="100%"
+                                          style="
+                                            table-layout: fixed;
+                                            width: 100%;
+                                          "
+                                        >
+                                          <tbody>
+                                            <tr>
+                                              <td
+                                                style="
+                                                  font-size: 0px;
+                                                  line-height: 0px;
+                                                  padding-bottom: 5px;
+                                                  padding-top: 5px;
+                                                "
+                                              >
+                                                <a
+                                                  href="https://www.facebook.com/dsaccountants"
+                                                  target="_blank"
+                                                  style="
+                                                    color: rgb(71, 71, 71);
+                                                    text-decoration: underline;
+                                                  "
+                                                >
+                                                  <img
+                                                    src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/facebook_32px.png"
+                                                    width="32"
+                                                    border="0"
+                                                    style="
+                                                      display: block;
+                                                      width: 100%;
+                                                    "
+                                                  />
+                                                </a>
+                                              </td>
+                                              <td
+                                                width="8"
+                                                style="
+                                                  font-size: 0px;
+                                                  line-height: 1px;
+                                                "
+                                              >
+                                                ­
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+                                      </th>
+                                      <th
+                                        width="40"
+                                        style="font-weight: normal"
+                                      >
+                                        <table
+                                          cellspacing="0"
+                                          cellpadding="0"
+                                          border="0"
+                                          role="presentation"
+                                          width="100%"
+                                          style="
+                                            table-layout: fixed;
+                                            width: 100%;
+                                          "
+                                        >
+                                          <tbody>
+                                            <tr>
+                                              <td
+                                                style="
+                                                  font-size: 0px;
+                                                  line-height: 0px;
+                                                  padding-bottom: 5px;
+                                                  padding-top: 5px;
+                                                "
+                                              >
+                                                <a
+                                                  href="https://au.linkedin.com/company/ds-accountants-and-advisors"
+                                                  target="_blank"
+                                                  style="
+                                                    color: rgb(71, 71, 71);
+                                                    text-decoration: underline;
+                                                  "
+                                                >
+                                                  <img
+                                                    src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/linkedin_32px.png"
+                                                    width="32"
+                                                    border="0"
+                                                    style="
+                                                      display: block;
+                                                      width: 100%;
+                                                    "
+                                                  />
+                                                </a>
+                                              </td>
+                                              <td
+                                                width="8"
+                                                style="
+                                                  font-size: 0px;
+                                                  line-height: 1px;
+                                                "
+                                              >
+                                                ­
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+                                      </th>
+                                      <th
+                                        width="32"
+                                        style="font-weight: normal"
+                                      >
+                                        <table
+                                          cellspacing="0"
+                                          cellpadding="0"
+                                          border="0"
+                                          role="presentation"
+                                          width="100%"
+                                          style="
+                                            table-layout: fixed;
+                                            width: 100%;
+                                          "
+                                        >
+                                          <tbody>
+                                            <tr>
+                                              <td
+                                                style="
+                                                  font-size: 0px;
+                                                  line-height: 0px;
+                                                  padding-bottom: 5px;
+                                                  padding-top: 5px;
+                                                "
+                                              >
+                                                <a
+                                                  href="https://dsaccountant.com.au/"
+                                                  target="_blank"
+                                                  style="
+                                                    color: rgb(71, 71, 71);
+                                                    text-decoration: underline;
+                                                  "
+                                                >
+                                                  <img
+                                                    src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/website_32px.png"
+                                                    width="32"
+                                                    border="0"
+                                                    style="
+                                                      display: block;
+                                                      width: 100%;
+                                                    "
+                                                  />
+                                                </a>
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+                                      </th>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </footer>
     </div>
-    <footer style="background-color: #f7951d1a; padding: 10px;">
-      <table cellspacing="0" cellpadding="0" border="0" role="presentation" align="center"
-        style="table-layout: fixed; width: 570px;">
-        <tbody>
-          <tr width="100%">
-            <td colspan="2" valign="middle"
-              style="padding-top: 15px; border: 0; line-height: 125%; text-align: center; font-size: 11px; font-family: Arial, Helvetica, sans-serif; font-weight: 300; color: #adadad;"
-              align="center">
-              <p style="color: #adadad;">For support requests, please contact us at
-                <a href="mailto:info@dsaccountant.com.au">info@dsaccountant.com.au</a>
-                <br>
-                &copy; 2024 DS Accountants and Advisors. All rights reserved.
-              </p>
-            </td>
-          </tr>
-          <tr width="570">
-            <td valign="top">
-              <table width="100%" cellspacing="0" cellpadding="0" border="0" role="presentation">
-                <tbody>
-                  <tr>
-                    <td align="center" style="display: inline-block;">
-                      <table cellspacing="0" cellpadding="0" border="0" role="presentation" width="570" align="center"
-                        style="table-layout: fixed; width: 570px;">
-                        <tbody>
-                          <tr>
-                            <td
-                              style="padding-bottom: 15px; padding-left: 229px; padding-right: 229px; padding-top: 15px;">
-                              <table width="100%" cellspacing="0" cellpadding="0" border="0" role="presentation">
-                                <tbody>
-                                  <tr>
-                                    <th width="40" style="font-weight: normal;">
-                                      <table cellspacing="0" cellpadding="0" border="0" role="presentation" width="100%"
-                                        style="table-layout: fixed; width: 100%;">
-                                        <tbody>
-                                          <tr>
-                                            <td
-                                              style="font-size: 0px; line-height: 0px; padding-bottom: 5px; padding-top: 5px;">
-                                              <a href="https://www.facebook.com/dsaccountants" target="_blank"
-                                                style="color: rgb(71, 71, 71); text-decoration: underline;">
-                                                <img
-                                                  src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/facebook_32px.png"
-                                                  width="32" border="0" style="display: block; width: 100%;" />
-                                              </a>
-                                            </td>
-                                            <td width="8" style="font-size: 0px; line-height: 1px;">­</td>
-                                          </tr>
-                                        </tbody>
-                                      </table>
-                                    </th>
-                                    <th width="40" style="font-weight: normal;">
-                                      <table cellspacing="0" cellpadding="0" border="0" role="presentation" width="100%"
-                                        style="table-layout: fixed; width: 100%;">
-                                        <tbody>
-                                          <tr>
-                                            <td
-                                              style="font-size: 0px; line-height: 0px; padding-bottom: 5px; padding-top: 5px;">
-                                              <a href="https://au.linkedin.com/company/ds-accountants-and-advisors"
-                                                target="_blank"
-                                                style="color: rgb(71, 71, 71); text-decoration: underline;">
-                                                <img
-                                                  src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/linkedin_32px.png"
-                                                  width="32" border="0" style="display: block; width: 100%;" />
-                                              </a>
-                                            </td>
-                                            <td width="8" style="font-size: 0px; line-height: 1px;">­</td>
-                                          </tr>
-                                        </tbody>
-                                      </table>
-                                    </th>
-                                    <th width="32" style="font-weight: normal;">
-                                      <table cellspacing="0" cellpadding="0" border="0" role="presentation" width="100%"
-                                        style="table-layout: fixed; width: 100%;">
-                                        <tbody>
-                                          <tr>
-                                            <td
-                                              style="font-size: 0px; line-height: 0px; padding-bottom: 5px; padding-top: 5px;">
-                                              <a href="https://dsaccountant.com.au/" target="_blank"
-                                                style="color: rgb(71, 71, 71); text-decoration: underline;">
-                                                <img
-                                                  src="https://creative-assets.mailinblue.com/editor/social-icons/rounded_colored/website_32px.png"
-                                                  width="32" border="0" style="display: block; width: 100%;" />
-                                              </a>
-                                            </td>
-                                          </tr>
-                                        </tbody>
-                                      </table>
-                                    </th>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </footer>
-  </div>
-</body>
-
+  </body>
 </html>

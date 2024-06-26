@@ -70,16 +70,19 @@ class EmailValidatorView(APIView):
         if not email and not tfn:
             return Response({'error': 'Valid email or TFN number is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        email_exists = User.objects.filter(email=email).exists() if email else False
         tfn_exists = User.objects.filter(tfn=tfn).exists() if tfn else False
+        email_exists = User.objects.filter(email=email).exists() if email else False
 
         if abn:
             abn_exists = Abn_income.objects.filter(abn=abn).exists()
         else:
             abn_exists = False
 
-        if email_exists or tfn_exists:
-            return Response({'error': 'Email or TFN exists'}, status=status.HTTP_400_BAD_REQUEST)
+        if tfn_exists :
+            return Response({'error': 'TFN exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if email_exists :
+            return Response({'error': 'Email exists'}, status=status.HTTP_400_BAD_REQUEST)
         
         if abn and abn_exists:
             return Response({'error': 'ABN exists'}, status=status.HTTP_400_BAD_REQUEST)
@@ -261,8 +264,10 @@ class UserRegistrationView(APIView):
             elif key.startswith('supportingdocuments'):
                 supporting_documents_files.append(file)
         return passport_files, supporting_documents_files
+
     @transaction.atomic
     def post(self, request, format=None):
+        print(request.data)
         try:
             encrypted_data = request.data.get('referral_code')
             referrercode = request.data.get('referercode')
@@ -419,9 +424,11 @@ class UserRegistrationView(APIView):
                     else:
                         transaction.set_rollback(True)
                         return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+                    
                 user.is_active = True
                 user.save()
+
+
                 if user:
                     email_subject = "Account Registration complete"
                     if user.role == "user":
@@ -431,6 +438,15 @@ class UserRegistrationView(APIView):
 
                     message = render_to_string(template, {
                         'name': user.first_name,
+                        'content' : request.data,
+                        'abnincome_data': abnincome_data,
+                        'spouse_data': spouse_data,
+                        'residentialaddress': residentialaddress_data,
+                        'bankdetails': bankdetails_data,
+                        'medicareinformation': medicareinformation_data,
+                        'occupation': occupation_data,
+                        'applicableincome': applicableincome_data,
+                        'applicableexpenses' : applicableexpenses_data
                     })
                     email_message = EmailMessage(
                         email_subject,
@@ -439,6 +455,20 @@ class UserRegistrationView(APIView):
                         [user.email],
                     )
                     email_message.content_subtype = "html"
+
+                    for file in passport_files:
+                        try:
+                            email_message.attach(file.name, file.read(), file.content_type)
+                        except Exception as e:
+                            print(f"Error attaching passport file: {e}")
+
+                    for file in supporting_documents_files:
+                        try:
+                            email_message.attach(file.name, file.read(), file.content_type)
+                        except Exception as e:
+                            print(f"Error attaching supporting documents file: {e}")
+
+
                     email_message.fail_silently = False
                     email_message.send()
 
@@ -1246,12 +1276,15 @@ class RefUserData(APIView):
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
         data = ReferalData.objects.all()
-        id = request.data.get('id')
+        id = request.query_params.get('id', None)
+
+        print(data)
 
         if request.user.role == 'admin' or request.user.role == 'staff':
             if(id):
-                user = User.object.get_object_or_404(id=id)
-                data = data.filter(referal__user=user)
+                user = get_object_or_404(User, id=id)
+                refuser = get_object_or_404(ReferralUser, user=user)
+                data = data.filter(referal=refuser) 
             else:
                 data = data
         elif request.user.role == 'referuser':

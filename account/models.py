@@ -36,7 +36,9 @@ def generate_image_with_qr(base_image_url, qr_image_path, referrercode):
     base_image.paste(qr_image, qr_position, qr_image)
 
     draw = ImageDraw.Draw(base_image)
-    font = ImageFont.truetype("arial.ttf", 30)  # Choose an appropriate font and size
+    font_path = "/usr/share/fonts/truetype/dejavu/arial.ttf"
+    font = ImageFont.truetype(font_path , 30)  # Choose an appropriate font and size
+    # font = ImageFont.truetype('arial.ttf' , 30)  # Choose an appropriate font and size
     text_position = (30, base_height - 100)  # Adjusted position
     draw.text(text_position, f"REFERRER CODE : {referrercode}", font=font, fill="white")
 
