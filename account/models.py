@@ -21,7 +21,7 @@ import datetime
 from email.mime.image import MIMEImage
 from PIL import Image, ImageDraw, ImageFont
 
-def generate_image_with_qr(base_image_url, qr_image_path, referrercode):
+def generate_image_with_qr(base_image_url, qr_image_path, referrercode,company_logo_path):
     response = requests.get(base_image_url)
     base_image = Image.open(BytesIO(response.content))
 
@@ -35,12 +35,22 @@ def generate_image_with_qr(base_image_url, qr_image_path, referrercode):
     qr_position = (30, base_height - 300) 
     base_image.paste(qr_image, qr_position, qr_image)
 
+    if company_logo_path:
+        company_logo = Image.open(company_logo_path)
+
+        if company_logo.mode != 'RGBA':
+            company_logo = company_logo.convert('RGBA')
+
+        company_logo.thumbnail((100, 100), Image.LANCZOS)
+        company_logo_position = (30, 30)
+        base_image.paste(company_logo, company_logo_position, company_logo)
+
     draw = ImageDraw.Draw(base_image)
     font_path = "/usr/share/fonts/truetype/dejavu/arial.ttf"
     font = ImageFont.truetype(font_path , 30)  # Choose an appropriate font and size
     # font = ImageFont.truetype('arial.ttf' , 30)  # Choose an appropriate font and size
-    text_position = (30, base_height - 100)  # Adjusted position
-    draw.text(text_position, f"REFERRER CODE : {referrercode}", font=font, fill="white")
+    code_position = (30, base_height - 70)  # Adjusted position
+    draw.text(code_position, f"{referrercode}", font=font, fill="white")
 
     buffer = BytesIO()
     base_image.save(buffer, format="PNG")
@@ -278,8 +288,9 @@ class ReferralUser(models.Model):
                 'commission': self.commission,
                 'commissiontype': self.commissiontype,
             }
-            base_image_url = "https://kantipurinfotech.com/wp-content/uploads/2024/06/WhatsApp-Image-2024-06-24-at-6.39.14-PM.jpeg"
-            poster_image_content = generate_image_with_qr(base_image_url, self.qrcode.path, self.referrercode)
+            base_image_url = "https://kantipurinfotech.com/wp-content/uploads/2024/06/QR.jpeg"
+            company_logo_path = self.company_logo.path if self.company_logo else None
+            poster_image_content = generate_image_with_qr(base_image_url, self.qrcode.path, self.referrercode,company_logo_path)
 
 
             message = render_to_string('qr_updating.html', context)

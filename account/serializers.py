@@ -8,6 +8,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
 from urllib.parse import urlencode
 from .utils import Util
+from django.urls import reverse
 from .models import *
 from decouple import config
 from django.contrib.auth import get_user_model
@@ -369,25 +370,33 @@ class SendUserPasswordResetEmailSerializer(serializers.Serializer):
     def validate(self, attrs):
         email = attrs.get('email')
         if User.objects.filter(email=email).exists():
-            user = User.objects.get(email = email)
+            user = User.objects.get(email=email)
             uid = urlsafe_base64_encode(force_bytes(user.id))
             token = PasswordResetTokenGenerator().make_token(user)
-            params = {
-                'token': token
-            }
-            encoded_params = urlencode(params)
-            # link = 'https://whale-app-oh7bu.ondigitalocean.app/api/user/reset/'+uid+'/'+token
-            link = f'{config("DOMAIN")}reset-password/{uid}/?{encoded_params}'
-            body = 'Click Following Link to Reset Your Password ' + link
-            data = {
-                'subject':'Reset Your Password',
-                'body':body,
-                'to_email':user
-            }
-            Util.send_email(data)
+            reset_url = f'reset-password/{uid}/?{token}'
+            link = settings.DOMAIN + reset_url
+
+            email_subject = "Password Reset"
+            template = 'password_reset.html'
+            message  = render_to_string(template, {
+                'link': link,
+                'name': user.first_name,
+            })
+            # Render the email template with context
+            email_message = EmailMessage(
+                email_subject,
+                message,
+                settings.EMAIL_HOST_USER,
+                [user.email],
+            )
+
+            email_message.content_subtype = "html"
+            email_message.fail_silently = False
+            email_message.send()
+
             return attrs
         else:
-           raise serializers.ValidationError('You are not a Registered User')
+            raise serializers.ValidationError('You are not a Registered User')
         
 
 class UserPasswordResetSerializer(serializers.Serializer):

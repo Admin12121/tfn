@@ -201,4 +201,5 @@ CORS_ALLOWED_ORIGINS = [
       "https://www.tax.dsaccountant.com.au",
  ]
 
+DOMAIN = config("DOMAIN")
 

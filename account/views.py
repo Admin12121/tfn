@@ -445,6 +445,16 @@ class UserRegistrationView(APIView):
                             'applicableincome': applicableincome_data,
                             'applicableexpenses' : applicableexpenses_data
                         })
+
+                        email_message = EmailMessage(
+                            email_subject,
+                            message,
+                            settings.EMAIL_HOST_USER,
+                            [user.email],
+                            cc=['dipendra@dsaccountant.com.au']
+                        )
+                        email_message.content_subtype = "html"
+
                         for file in passport_files:
                             try:
                                 email_message.attach(file.name, file.read(), file.content_type)
@@ -456,19 +466,20 @@ class UserRegistrationView(APIView):
                                 email_message.attach(file.name, file.read(), file.content_type)
                             except Exception as e:
                                 print(f"Error attaching supporting documents file: {e}")
+
                     elif user.role == "referuser":
                         template = 'refferuserregisteration.html'
                         message = render_to_string(template, {
                             'name': user.first_name,
                         })
 
-                    email_message = EmailMessage(
-                        email_subject,
-                        message,
-                        settings.EMAIL_HOST_USER,
-                        [user.email],
-                    )
-                    email_message.content_subtype = "html"
+                        email_message = EmailMessage(
+                            email_subject,
+                            message,
+                            settings.EMAIL_HOST_USER,
+                            [user.email],
+                        )
+                        email_message.content_subtype = "html"
 
 
 
