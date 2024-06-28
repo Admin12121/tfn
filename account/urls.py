@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import(
 
 urlpatterns = [
 
+    path('yearupdate/', YearUpdatesView.as_view(), name='yearupdate'),
     path('validator/', EmailValidatorView.as_view(), name='validator'),
     path('twofa/', TwoFaView.as_view(), name='twofa'),
     path('retwofa/', ResendView.as_view(), name='retwofa'),

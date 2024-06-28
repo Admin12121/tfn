@@ -299,7 +299,6 @@ class ReferalSettlementSerializer(serializers.ModelSerializer):
             users_data.append(user_data)
         return users_data
 
-
 class FormYearsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FormDate
@@ -317,22 +316,25 @@ class UserDataSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'title', 'first_name', 'middle_name', 'last_name', 'phone', 'dateofbirth',
             'numberofdependents', 'gender', 'tfn', 'abn', 'abn_income', 'spouse', 'medicareinformation', 'is_export',
-            'is_active', 'role', 'status', 'payment_status', 'created_at', 'updated_at', 'last_login',
+            'is_active', 'role', 'status', 'created_at', 'updated_at', 'last_login',
             'referral_data', 'formdata', 'refuserstatus', 'year'
         ]
 
     def get_formdata(self, obj):
         request = self.context.get('request')
-        year_param = request.query_params.get('year', datetime.now().year)
+        year_param = request.query_params.get('year')
         id_param = request.query_params.get('id')
 
         if request.user.is_authenticated and obj == request.user:
             form_dates = obj.formdata.all()
         else:
-            if request.query_params.get('id'):
+            if id_param:
                 form_dates = obj.formdata.all()
             else:
-                form_dates = obj.formdata.filter(year=year_param)
+                if year_param:
+                    form_dates = obj.formdata.filter(year=year_param)
+                else:
+                    form_dates = obj.formdata.order_by('-year')[:1]
 
         form_dates_data = FormDateSerializer(form_dates, many=True, context={'request': request}).data
         return form_dates_data[0] if form_dates_data and not id_param else form_dates_data
@@ -373,7 +375,8 @@ class SendUserPasswordResetEmailSerializer(serializers.Serializer):
             user = User.objects.get(email=email)
             uid = urlsafe_base64_encode(force_bytes(user.id))
             token = PasswordResetTokenGenerator().make_token(user)
-            reset_url = f'reset-password/{uid}/?{token}'
+            print(token)
+            reset_url = f'reset-password/{uid}/?token={token}'
             link = settings.DOMAIN + reset_url
 
             email_subject = "Password Reset"
@@ -398,7 +401,6 @@ class SendUserPasswordResetEmailSerializer(serializers.Serializer):
         else:
             raise serializers.ValidationError('You are not a Registered User')
         
-
 class UserPasswordResetSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
     class Meta:
@@ -421,8 +423,6 @@ class UserPasswordResetSerializer(serializers.Serializer):
             PasswordResetTokenGenerator().check_token(user, token)
             raise serializers.ValidationError('Token is not Valid or Expired')
         
-
-
 class UserMakaSerializer(serializers.ModelSerializer):
     # formdata = serializers.SerializerMethodField()
     class Meta:
@@ -430,3 +430,7 @@ class UserMakaSerializer(serializers.ModelSerializer):
         fields = ['id']
 
 
+class FormDatamanupalitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormDate
+        fields = ['id','year']

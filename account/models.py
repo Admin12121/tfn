@@ -119,10 +119,7 @@ class User(AbstractBaseUser):
         ('lodgedwithato', 'lodgedwithato'),
         ('dormat', 'dormat'),
     )
-    Payment_Status = (
-        ('paid', 'paid'),
-        ('unpaid', 'unpaid'),
-    )
+
     email = models.EmailField(
         verbose_name='Email',
         max_length=255,
@@ -146,7 +143,6 @@ class User(AbstractBaseUser):
     medicareinformation = models.BooleanField(default=False, null=True, blank=True)
     referercode = models.ForeignKey('ReferralUser', on_delete=models.SET_DEFAULT, default=None, null=True, blank=True, related_name='users_with_referercode')
     status = models.CharField(max_length=100,choices=Status, null=True, blank=True, default="received")
-    payment_status = models.CharField(max_length=100,choices=Payment_Status , null=True, blank=True, default="unpaid")
     is_export = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
@@ -187,8 +183,13 @@ def schedule_token_removal(sender, instance, created, **kwargs):
     threading.Thread(target=remove_token_after_delay, args=(instance.id,)).start()
 
 class FormDate(models.Model):
+    Payment_Status = (
+        ('paid', 'paid'),
+        ('unpaid', 'unpaid'),
+    )
     user = models.ForeignKey('User', related_name='formdata', on_delete=models.CASCADE)
     year = models.IntegerField(default=current_year, validators=[validate_year])
+    payment_status = models.CharField(max_length=100,choices=Payment_Status , null=True, blank=True, default="unpaid")
 
     def __str__(self):
         return str(self.year)

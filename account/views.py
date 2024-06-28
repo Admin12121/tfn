@@ -10,23 +10,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from tfn import settings
 from django.core.mail import EmailMessage
 from decouple import config
-from django.db.models import Q, Max
 from django.shortcuts import get_object_or_404
 from .models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from rest_framework.pagination import PageNumberPagination
 import json
 from django.db import transaction
-from django.db.models import Q
-from cryptography.fernet import Fernet, InvalidToken
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from urllib.parse import unquote
-from django.http import HttpRequest
-from django.shortcuts import render
 from django.http import JsonResponse
 from django.views import View
 from django.core.files.storage import FileSystemStorage
@@ -34,6 +27,7 @@ import hashlib
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.dateparse import parse_date
+from django.db.models import Max, Q, OuterRef, Subquery
 
 def current_year():
     return datetime.now().year
@@ -193,10 +187,16 @@ class AdminRegistrationView(APIView):
             
             password = request.data['password']
             serializer = AdminRegistrationSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            
-            user = serializer.save()
-            
+            if serializer.is_valid():            
+                user = serializer.save()
+            else:
+                error_messages = []
+                for field, errors in serializer.errors.items():
+                    for error in errors:
+                        error_messages.append(error)
+                logger.error("Validation errors: %s", error_messages)
+                return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
+
             if request.data['role'] == "referuser":
                 try:
                     with transaction.atomic():
@@ -322,10 +322,10 @@ class UserRegistrationView(APIView):
                                     commission_amt = (referral_user.commission / 100.0) * form_charge.amount
                                 else:
                                     commission_amt = referral_user.commission
-                                ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
+                                refyear =  ReferalData.objects.create(user=user, referal=referral_user, commissionamt=commission_amt)
                                 if not referral_user.isrequired:
-                                    user.payment_status = "paid"
-                                    user.save()
+                                    refyear.payment_status = "paid"
+                                    refyear.save()
                         except Exception as e:
                             print(f"Error in decrypting or processing referral data: {e}")
 
@@ -455,15 +455,20 @@ class UserRegistrationView(APIView):
                         )
                         email_message.content_subtype = "html"
 
+
                         for file in passport_files:
                             try:
+                                file.open()
                                 email_message.attach(file.name, file.read(), file.content_type)
+                                file.close()
                             except Exception as e:
                                 print(f"Error attaching passport file: {e}")
 
                         for file in supporting_documents_files:
                             try:
+                                file.open()
                                 email_message.attach(file.name, file.read(), file.content_type)
+                                file.close()
                             except Exception as e:
                                 print(f"Error attaching supporting documents file: {e}")
 
@@ -494,7 +499,7 @@ class UserRegistrationView(APIView):
                     for error in errors:
                         error_messages.append(error)
                 logger.error("Validation errors: %s", error_messages)
-                return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({error_messages}, status=status.HTTP_400_BAD_REQUEST)
 
         except IntegrityError as e:
             transaction.set_rollback(True)
@@ -520,7 +525,6 @@ class AddDocumentView(APIView):
 
     @transaction.atomic
     def post(self, request, format=None):
-        # print(request.data)
         user_id = request.query_params.get('id')
         date = request.data.get('date')
         user = get_object_or_404(User, pk=user_id)
@@ -537,25 +541,8 @@ class AddDocumentView(APIView):
 
             if entered_year == current_year:
                 user.status = 'received'
-                user.payment_status = 'unpaid'
                 user.is_export = False
                 user.save()
-
-                if user:
-                    email_subject = "Account Registration Successful"
-                    message = render_to_string('message.html', {
-                        'name': user.first_name,
-                        'message': f"Your New Document for {entered_year} has been updated and sent to Supervisor for review. Once your Document is verified, you will be informed through email."
-                    })
-                    email_message = EmailMessage(
-                        email_subject,
-                        message,
-                        settings.EMAIL_HOST_USER,
-                        [user.email],
-                    )
-                    email_message.content_subtype = "html"
-                    email_message.fail_silently = False
-                    email_message.send()
             
             # Initialize data from request
             abnincome_data = request.data.get('abnincome_data')
@@ -674,6 +661,57 @@ class AddDocumentView(APIView):
             else:
                 return Response(additional_info_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
+            if user:
+                    email_subject = "Account Registration Successful"
+                    message = render_to_string('message.html', {
+                        'name': user.first_name,
+                        'content' : user,
+                        'abnincome_data': abnincome_data,
+                        'spouse_data': spouse_data,
+                        'residentialaddress': residentialaddress_data,
+                        'bankdetails': bankdetails_data,
+                        'medicareinformation': medicareinformation_data,
+                        'occupation': occupation_data,
+                        'applicableincome': applicableincome_data,
+                        'applicableexpenses' : applicableexpenses_data
+                    })
+                    email_message = EmailMessage(
+                        email_subject,
+                        message,
+                        settings.EMAIL_HOST_USER,
+                        [user.email],
+                    )
+
+                                # Attach passport files to the email
+                    if request.FILES.getlist('passport_drivinglicense'):
+                        for file in passport_files:
+                            try:
+                                file.open()
+                                email_message.attach(file.name, file.read(), file.content_type)
+                                file.close()
+                            except Exception as e:
+                                print(f"Error attaching passport file: {e}")
+                    else:
+                        for passport_file in passport_files:
+                            try:
+                                with open(passport_file.path, 'rb') as f:
+                                    email_message.attach(passport_file.name, f.read(), passport_file.content_type)
+                            except Exception as e:
+                                print(f"Error attaching stored passport file: {e}")
+
+                    # Attach supporting documents to the email
+                    for file in supporting_documents_files:
+                        try:
+                            file.open()
+                            email_message.attach(file.name, file.read(), file.content_type)
+                            file.close()
+                        except Exception as e:
+                            print(f"Error attaching supporting documents file: {e}")
+                    
+                    email_message.content_subtype = "html"
+                    email_message.fail_silently = False
+                    email_message.send()
+
             return Response({'message': 'Document Added Successfully'}, status=status.HTTP_201_CREATED)
         except Exception as e:
             transaction.set_rollback(True)
@@ -851,8 +889,6 @@ class AllUsersView(APIView):
         year_param = request.query_params.get('year')
         from_param = request.query_params.get('from')
         to_param = request.query_params.get('to')
-        from_param = request.query_params.get('from')
-        to_param = request.query_params.get('to')
 
         # Parse the 'from' date
         if from_param:
@@ -890,11 +926,8 @@ class AllUsersView(APIView):
                 Q(middle_name__icontains=name_param) |
                 Q(last_name__icontains=name_param) |
                 Q(phone__icontains=name_param) |
-                Q(tfn__icontains = name_param)
+                Q(tfn__icontains=name_param)
             )
-
-        if paymentstatus_param:
-            users = users.filter(payment_status=paymentstatus_param)
 
         if refdata_param:
             try:
@@ -919,7 +952,9 @@ class AllUsersView(APIView):
             users = users.filter(role=role_param)
 
         if role_param == 'user':
-            if year_param:
+            if year_param and paymentstatus_param:
+                users = users.filter(formdata__year=year_param, formdata__payment_status=paymentstatus_param)
+            elif year_param:
                 users = users.filter(formdata__year=year_param)
             else:
                 users = self.get_users_with_latest_formdate(users)
@@ -940,10 +975,15 @@ class AllUsersView(APIView):
         return {'request': self.request}
 
     def get_users_with_latest_formdate(self, users):
-        latest_formdates = FormDate.objects.filter(user__in=users).values('user').annotate(latest_date=Max('year'))
-        user_ids = [entry['user'] for entry in latest_formdates]
-        users = users.filter(id__in=user_ids)
-        return users
+        latest_formdates = FormDate.objects.filter(
+            user=OuterRef('pk')
+        ).order_by('-year').values('year')[:1]
+
+        users_with_latest_formdate = users.annotate(
+            latest_formdate=Subquery(latest_formdates)
+        ).filter(latest_formdate__isnull=False)
+
+        return users_with_latest_formdate
         
     def patch(self, request, format=None):
         if request.user.role not in ['admin', 'staff', 'user']:
@@ -1201,58 +1241,73 @@ class AllUsersView(APIView):
             return value.lower() in ('true', '1')
         return bool(value)
 
+class YearUpdatesView(APIView):
+    renderer_classes = [UserRenderer]
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, format=None):
+        if request.user.role not in ['admin', 'staff']:
+            return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+        formdata_id = request.query_params.get('id')
+
+        formdata = FormDate.objects.get(id=formdata_id)
+        if formdata:
+            print(formdata)
+            serializer = FormDatamanupalitationSerializer(formdata, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+        else:
+                return Response({'Year Data not Found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Users updated successfully.'}, status=status.HTTP_200_OK)
+    
 class ClientuserStatusUpdates(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, format=None):
-        # print(request.data)
-
         if request.user.role not in ['admin', 'staff']:
             return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
         user_ids = request.data.get('user')
         new_status = request.data.get('status')
         new_payment_status = request.data.get('paymentstatus')
+        payment_year = request.data.get('year')
 
         if not user_ids:
             return Response({'detail': 'User IDs are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if at least one of new_status or new_payment_status is provided
         if not (new_status or new_payment_status):
-            return Response({'detail': 'At least one of status or payment status is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'status or payment status is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if new_payment_status and not payment_year:
+            return Response({'detail': 'Year must be included while updating payment status'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Parse user_ids from JSON string
-        if isinstance(user_ids, str):
-            try:
-                user_ids = json.loads(user_ids)
-            except json.JSONDecodeError:
-                return Response({'detail': 'User IDs format is invalid.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convert user_ids elements to integers if they are strings
         try:
+            user_ids = json.loads(user_ids) if isinstance(user_ids, str) else user_ids
             user_ids = [int(uid) for uid in user_ids]
-        except ValueError:
+        except (json.JSONDecodeError, ValueError):
             return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure user_ids is a list of integers
         if not isinstance(user_ids, list) or not all(isinstance(uid, int) for uid in user_ids):
             return Response({'detail': 'User IDs must be a list of integers.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                if new_payment_status:
-                    User.objects.filter(id__in=user_ids).update(payment_status=new_payment_status)
-                else:
-                    User.objects.filter(id__in=user_ids).update(status=new_status)
-
                 users = User.objects.filter(id__in=user_ids)
+                print(users)
+
+                if new_payment_status:
+                    form_dates = FormDate.objects.filter(user__in=users, year=payment_year)
+                    form_dates.update(payment_status=new_payment_status)
+
+                if new_status:
+                    users.update(status=new_status)
 
                 if new_status == 'dormat':
                     self.send_dormant_status_emails(users)
 
-                # Update ReferalData status if user exists and meets criteria
                 for user in users:
                     if user.status == 'lodgedwithato' and user.payment_status == 'paid':
                         ReferalData.objects.filter(user=user, status='not due').update(status='payable')
@@ -1260,7 +1315,6 @@ class ClientuserStatusUpdates(APIView):
             return Response({'detail': 'Users updated successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
 
     def send_dormant_status_emails(self, users):
         email_subject = "Your account status has been updated"
@@ -1782,3 +1836,4 @@ class RefStatusUpdate(APIView):
                 except Exception as e:
                     # print(str(e))
                     return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
