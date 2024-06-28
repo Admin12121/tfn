@@ -21,7 +21,6 @@ class StripeCheckoutView(APIView):
     def post(self, request):
         user_email = request.data.get('email')
         payment_year = request.data.get('year')
-        print(request.data)
 
         if not user_email or not payment_year:
             return Response({'error': 'Email and year are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -31,8 +30,8 @@ class StripeCheckoutView(APIView):
                 customer_email=user_email,
                 line_items=[
                     {
-                        # 'price': 'price_1PUjTTGixAyqUicLNUMooAOv',
-                        'price': 'price_1PQ5SqGixAyqUicLTLXb6YHn',
+                        'price': 'price_1PUjTTGixAyqUicLNUMooAOv',
+                        # 'price': 'price_1PQ5SqGixAyqUicLTLXb6YHn',
                         'quantity': 1,
                     },
                 ],
@@ -62,8 +61,6 @@ class AuthStripeCheckoutView(APIView):
         user = request.user
         payment_year = request.data.get('year')
 
-        print(request.data)
-
         if not user.is_authenticated:
             return Response({'error': 'User not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -75,8 +72,8 @@ class AuthStripeCheckoutView(APIView):
                 customer_email=user.email,
                 line_items=[
                     {
-                        # 'price': 'price_1PUjS3GixAyqUicLvF835GcX',
-                        'price': 'price_1PQ2HkGixAyqUicL9W28U717',
+                        'price': 'price_1PUjS3GixAyqUicLvF835GcX',
+                        # 'price': 'price_1PQ2HkGixAyqUicL9W28U717',
                         'quantity': 1,
                     },
                 ],
@@ -130,7 +127,9 @@ class StripeWebhookView(APIView):
                     form_date = FormDate.objects.get(user=user, year=payment_year)
                     form_date.payment_status = 'paid'
                     form_date.save()
+
                     self.send_payment_email(user, payment_amount, transaction_id, payment_date)
+                
                 except User.DoesNotExist:
                     return JsonResponse({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
                 except FormDate.DoesNotExist:
